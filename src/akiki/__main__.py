@@ -1,3 +1,4 @@
+"""Command-line interface for local speech detection in mono, 16 kHz files."""
 from dataclasses import asdict
 import argparse
 import json
@@ -6,6 +7,12 @@ from . import __version__
 
 
 def main():
+    """Parse CLI options and print one JSON result per complete audio frame.
+
+    The ``akiki`` command and ``python -m akiki`` share this entry point.
+    ``--version`` prints the installed package version. Invalid arguments,
+    unsupported audio, or engine errors terminate with exit status 2.
+    """
     from ._quantization import MODEL_PRECISIONS
     parser = argparse.ArgumentParser(description="Run Akiki VAD locally on mono 16 kHz audio.")
     parser.add_argument("--version", action="version", version=f"akiki {__version__}")

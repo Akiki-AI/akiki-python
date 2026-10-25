@@ -50,6 +50,17 @@ not padded or scored.
 Use `VAD(threshold=0.6)` to set the speech decision threshold. Every frame still
 includes its probability, regardless of the threshold.
 
+The public API includes docstrings for editor hints and interactive help:
+
+```python
+import akiki
+
+help(akiki.VAD)              # Configuration, attributes, and streaming example
+help(akiki.VAD.__init__)     # Constructor parameters and defaults
+help(akiki.VAD.push)         # Audio input, buffering, results, and errors
+help(akiki.SpeechFrame)      # Result fields and timestamp units
+```
+
 ## Command line
 
 ```bash
