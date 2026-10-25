@@ -52,7 +52,45 @@ Confirm that `VAD().model_precision` is `int8` and `VAD().fft_precision` is
 `fp32`. When no precision is specified, optional ONNX and PyTorch engines use
 FP32; an explicit non-FP32 request must require Rust.
 
-## Publish
+## Publish from GitHub Actions
+
+The workflow is `.github/workflows/publish.yml`. It builds and verifies the
+portable wheel, source archive, and Linux x86_64 native wheel. It tests the
+native loader, Python API, and clean installations before saving the artifacts.
+Models come exclusively from `src/akiki/models/`; no model is downloaded.
+
+Pushes to `main` and manual runs from the Actions tab build and test without
+publishing. Publishing a GitHub release runs the same checks and then uploads
+the verified artifacts to PyPI using Trusted Publishing. The release tag must
+be `v` followed by the version in `pyproject.toml`, for example `v0.0.6`. Update
+all the version locations listed above first, and use a version that has not
+already been uploaded to PyPI.
+
+The existing PyPI `akiki` project must trust owner `Akiki-AI`, repository
+`akiki-python`, workflow filename `publish.yml`, with the environment left
+blank. Only the publishing job has `id-token: write`; no PyPI token is stored.
+
+The native source is pinned by `AKIKI_INFERENCE_REV` in the workflow. Update
+that commit deliberately when changing the engine. Both repositories remain
+private. Source checkout uses a dedicated read-only SSH deploy key:
+
+1. Enable deploy keys in the organization's settings if they are disabled.
+2. Add the public key under `akiki-inference` Settings > Deploy keys, leaving
+   Allow write access unchecked.
+3. Store the matching private key as the `AKIKI_INFERENCE_SSH_KEY` Actions
+   secret in `akiki-python`.
+
+The private key must never be committed. It is used only for source checkout
+and is separate from PyPI Trusted Publishing. To rotate it, install a new
+public key and update the secret before deleting the old deploy key.
+
+The workflow targets glibc 2.34 and newer. Auditwheel must verify that floor;
+a build that needs newer libc symbols fails rather than publishing a renamed
+wheel. The engine's self-contained safetensors and configuration tests run in
+CI; legacy Rust tests that require external `.akv` fixtures are not part of
+this workflow. The Python tests use the exact bundled release models.
+
+## Publish from a local shell
 
 Set `UV_PUBLISH_TOKEN` in your own shell or use configured trusted publishing.
 Do not store credentials in this repository.

@@ -1,0 +1,163 @@
+name: Build and publish
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  HF_HUB_OFFLINE: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  AKIKI_CACHE_DIR: ${{ github.workspace }}/.cache/models
+  # Keep the native build tied to the tested engine source.
+  AKIKI_INFERENCE_REV: 159af1fac753ec2bcf094e56368ef64094024fe7
+
+jobs:
+  build:
+    name: Build and verify Linux distributions
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out Python package
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check out pinned Rust engine
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Akiki-AI/akiki-inference
+          ref: ${{ env.AKIKI_INFERENCE_REV }}
+          path: .cache/akiki-inference
+          # Dedicated read-only deploy key for this private source repository.
+          ssh-key: ${{ secrets.AKIKI_INFERENCE_SSH_KEY }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Check release tag
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="$(python verify_dist.py --version)"
+          if [[ "$GITHUB_EVENT_NAME" == "release" && "$RELEASE_TAG" != "v$version" ]]; then
+            echo "Release tag must be v$version to match pyproject.toml." >&2
+            exit 1
+          fi
+
+      - name: Install build and test tools
+        run: |
+          python -m pip install build "setuptools>=77.0.3" wheel auditwheel patchelf twine pytest numpy soundfile onnxruntime
+          rustup toolchain install 1.98.1 --profile minimal
+          rustup default 1.98.1
+
+      - name: Cache Rust dependencies locally
+        run: cargo fetch --locked --manifest-path .cache/akiki-inference/Cargo.toml
+
+      - name: Test native model loading
+        run: |
+          cargo test --offline --locked --manifest-path .cache/akiki-inference/Cargo.toml -p akiki-vad-engine --test safetensors
+          cargo test --offline --locked --manifest-path .cache/akiki-inference/Cargo.toml -p akiki-vad-engine --lib config_tests
+
+      - name: Build native engine offline
+        run: python tools/build_native.py --inference-dir .cache/akiki-inference
+
+      - name: Build portable wheel and source archive
+        run: python -m build --no-isolation
+
+      - name: Build and repair native wheel
+        run: |
+          AKIKI_NATIVE_LIBRARY="$PWD/.cache/native-target/release/libakiki_vad_engine.so" \
+            python -m build --no-isolation --wheel --outdir .cache/raw-wheels
+          auditwheel repair --plat manylinux_2_34_x86_64 --wheel-dir dist .cache/raw-wheels/*.whl
+
+      - name: Verify release metadata and exact bundled model bytes
+        run: |
+          python verify_dist.py --all-wheels --require-native
+          python -m twine check --strict dist/*
+
+      - name: Run Python tests with the native engine required
+        env:
+          AKIKI_VAD_TEST_RUST: "1"
+        run: python -m pytest -q
+
+      - name: Test native wheel in a clean base installation
+        run: |
+          python -m venv "$RUNNER_TEMP/akiki-native"
+          "$RUNNER_TEMP/akiki-native/bin/python" -m pip install dist/akiki-*-manylinux_2_34_x86_64.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/akiki-native/bin/python" -I - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          import akiki
+          import numpy as np
+
+          assert importlib.util.find_spec("onnxruntime") is None
+          assert importlib.util.find_spec("torch") is None
+          with akiki.VAD() as vad:
+              assert vad.engine == "rust"
+              assert vad.model_precision == "int8" and vad.fft_precision == "fp32"
+              assert Path(vad._backend.lib._name).parent == Path(akiki.__file__).parent / "native"
+              assert len(vad.push(np.zeros(256 * 3 + 17, np.float32))) == 3
+          print("Native wheel: bundled Rust engine, INT8, base dependencies only")
+          PY
+
+      - name: Test portable wheel with the ONNX extra
+        run: |
+          version="$(python verify_dist.py --version)"
+          python -m venv "$RUNNER_TEMP/akiki-onnx"
+          "$RUNNER_TEMP/akiki-onnx/bin/python" -m pip install "dist/akiki-${version}-py3-none-any.whl[onnx]"
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/akiki-onnx/bin/python" -I - <<'PY'
+          import importlib.util
+          import numpy as np
+          from akiki import VAD
+
+          assert importlib.util.find_spec("torch") is None
+          with VAD() as vad:
+              assert vad.engine == "onnx" and vad.model_precision == "fp32"
+              assert len(vad.push(np.zeros(256 * 3 + 17, np.float32))) == 3
+          print("Portable wheel: ONNX fallback, no PyTorch dependency")
+          PY
+
+      - name: Save verified distributions
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-distributions
+          path: dist/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  publish:
+    name: Publish to PyPI
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - name: Retrieve verified distributions
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: python-distributions
+          path: dist/
+
+      # No environment is set: the PyPI publisher was registered without one.
+      - name: Publish with PyPI Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # release/v1
