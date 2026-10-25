@@ -1,0 +1,38 @@
+{
+  "bytes": 1117830,
+  "created_utc": "2026-10-24T21:29:54Z",
+  "input_policy": "576 samples = 320 past + 256 current; fixed batch 1, 16kHz; complete frontend included",
+  "model_id": "teacher-only623-v2-s1730",
+  "onnx_sha256": "0fab56bc4ea6725ec881c35973e04813a4963dc5bbf4bf5ccfe8fd7cf468c6f5",
+  "origin": {
+    "checkpoint_sha256": "4b7d904c14f154cc7f39b78eb4c8cde0156de2a8ef8671650d0e05b12c518d73",
+    "family": "teacher-only",
+    "human_test_checkpoint_selection": false,
+    "published_ami_icsi_annotations_used": false,
+    "recipe_sha256": "9f563cfb34405ff3ebf35346d728f9d785b5a4b5b04ec2fc8e07ee50fc14b2f6",
+    "seed": 1730,
+    "teacher_release": "6.2.3",
+    "teacher_sha256": "1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3",
+    "teacher_v5_supervision_used": false,
+    "ten_supervision_used": false,
+    "threshold_source": "Frozen0.5; same validation rule across all families; no benchmark threshold tuning"
+  },
+  "release_selection": {
+    "benchmarks": "Previously inspected development comparisons; not untouched final test sets",
+    "checkpoint_rule": "Lowest teacher-only validation BCE within the fully trained seed",
+    "checkpoint_window": 31,
+    "seed": 1730,
+    "seed_rule": "User chose seed 1730 after reviewing the three completed TEN/VoxConverse comparisons"
+  },
+  "release_status": "release",
+  "spec": {
+    "chunk_samples": 256,
+    "context_samples": 320,
+    "frontend": "Silero-v5-16k",
+    "hidden": 128,
+    "kind": "gru",
+    "sample_rate": 16000
+  },
+  "threshold": 0.5,
+  "threshold_source": "Frozen0.5; same validation rule across all families; no benchmark threshold tuning"
+}

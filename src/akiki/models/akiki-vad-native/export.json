@@ -1,0 +1,9 @@
+{
+  "config_sha256": "f87fcf8c49590d5d942960ac2419ac14de79d38c9fefd7cbc62a824070a71f1d",
+  "exporter_sha256": "cb3a27e4bac397f188b9224192b272d7ce2ccc309677220c30645963e8b99f5a",
+  "model_safetensors_sha256": "ae6f50bed1f95c7a138ae384801871f43ad6965dbd196387ef746ec1f0f2908d",
+  "source_checkpoint": "akiki-vad.pt",
+  "source_checkpoint_sha256": "101466d71a492fd33e699271f4cf7340c7cb26ebe2c83baaaa5b096a1c0bd34f",
+  "tensor_count": 15,
+  "tensor_values": "Unmodified original FP32 state_dict; no pruning, quantization or native packing"
+}

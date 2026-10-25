@@ -1,0 +1,94 @@
+{
+  "chunk_samples": 256,
+  "context_samples": 320,
+  "files": {
+    "akiki-vad.json": {
+      "bytes": 1647,
+      "sha256": "a3bff019b6517db686e9aca714de0e3a5cd0eddf756449f96d54b5c1302451bd"
+    },
+    "akiki-vad.onnx": {
+      "bytes": 1117830,
+      "sha256": "0fab56bc4ea6725ec881c35973e04813a4963dc5bbf4bf5ccfe8fd7cf468c6f5"
+    },
+    "akiki-vad.pt": {
+      "bytes": 1112924,
+      "sha256": "101466d71a492fd33e699271f4cf7340c7cb26ebe2c83baaaa5b096a1c0bd34f"
+    }
+  },
+  "license": "Apache-2.0",
+  "metrics": {
+    "ten": {
+      "at_0_5": {
+        "f1": 0.9260534513854731,
+        "false_negative_rate": 0.08267013155757674,
+        "false_positive_rate": 0.1943620178041543,
+        "fn": 509,
+        "fp": 393,
+        "precision": 0.9349445456050323,
+        "recall": 0.9173298684424233,
+        "threshold": 0.5,
+        "tn": 1629,
+        "tp": 5648
+      },
+      "average_precision": 0.9801865782148232,
+      "precision_at_recall": {
+        "0.9": 0.9450025540609569,
+        "0.95": 0.9064870723022139
+      }
+    },
+    "voxconverse": {
+      "at_0_5": {
+        "f1": 0.9498693603388887,
+        "false_negative_rate": 0.07333519865696699,
+        "false_positive_rate": 0.20555670432543188,
+        "fn": 65525,
+        "fp": 21870,
+        "precision": 0.9742658955456583,
+        "recall": 0.926664801343033,
+        "threshold": 0.5,
+        "tn": 84524,
+        "tp": 827975
+      },
+      "average_precision": 0.9930449985493423,
+      "precision_at_recall": {
+        "0.9": 0.9820955829427366,
+        "0.95": 0.9615820040529373
+      }
+    }
+  },
+  "model_id": "teacher-only623-v2-s1730",
+  "output_hop_ms": 16,
+  "package_version": "0.0.5",
+  "parameters": 210561,
+  "sample_rate": 16000,
+  "schema_version": 1,
+  "selected_utc": "2026-10-25T04:42:17.409554+00:00",
+  "selection": {
+    "benchmarks": "Previously inspected development comparisons; not untouched final test sets",
+    "checkpoint_rule": "Lowest teacher-only validation BCE within the fully trained seed",
+    "checkpoint_window": 31,
+    "seed": 1730,
+    "seed_rule": "User chose seed 1730 after reviewing the three completed TEN/VoxConverse comparisons"
+  },
+  "source_experiment": "teacher-only623-v2",
+  "status": "release",
+  "threshold": 0.5,
+  "training": {
+    "ami_icsi": false,
+    "executed_windows": 48,
+    "manifest_sha256": "69bec79c13ba9021f7b7a604bbef626fdc67131c218a7a7e55239855a87009b8",
+    "online_augmentation": false,
+    "recipe_sha256": "9f563cfb34405ff3ebf35346d728f9d785b5a4b5b04ec2fc8e07ee50fc14b2f6",
+    "seed": 1730,
+    "selected_window": 31,
+    "source_checkpoint_sha256": "4b7d904c14f154cc7f39b78eb4c8cde0156de2a8ef8671650d0e05b12c518d73",
+    "targets_sha256": "26faa6b6c3c078a3ed7f10c2af60234c2d476d29caf94ed02d7398e2fae7631b",
+    "teacher_release": "6.2.3",
+    "teacher_sha256": "1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3",
+    "teacher_v5_supervision": false,
+    "ten_supervision": false,
+    "training_plan_sha256": "08c894cdc0c33c7eed8b67c1e8a1b6594b35c0ec59c776e391f0f28fb348900b",
+    "updates": 98304,
+    "validation_bce": 0.08176685907641683
+  }
+}

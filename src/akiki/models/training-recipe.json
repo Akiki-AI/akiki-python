@@ -1,0 +1,32 @@
+{
+  "batch_size": 64,
+  "burn_in_chunks": 128,
+  "decay_windows": 40,
+  "holdout": "Score TEN and VoxConverse after each completed seed; frozen schedule and teacher-only selection; development comparisons already inspected",
+  "initialization": "Fresh random CNN+GRU128; no pretrained student or teacher weights",
+  "learning_rate": 0.001,
+  "minimum_learning_rate": 2e-06,
+  "model_downloads": 0,
+  "new_teacher_inference": false,
+  "online_augmentation": false,
+  "physical_gpu": 1,
+  "sampling": "Original source balance and crop sampler; unmodified cached audio/targets; existing labelled mixtures and explicit instrumental zeros retained",
+  "seeds": [
+    1729,
+    1730,
+    1731
+  ],
+  "sequence_chunks": 256,
+  "settling_windows": 8,
+  "steps_per_window": 2048,
+  "stopping": "Fixed 48 windows, no early stopping; decay completes before eight minimum-LR windows",
+  "synthetic_silence_probability": 0,
+  "teacher_sha256": "1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3",
+  "train_ami_icsi": false,
+  "validation": "Original 0.5 base-category-macro plus 0.5 expanded-source-macro recording BCE against cached Silero 6.2.3 targets",
+  "validation_ami_weight": 0,
+  "validation_icsi_weight": 0,
+  "validation_teacher_weight": 1,
+  "version": "teacher-only623-v2",
+  "windows": 48
+}

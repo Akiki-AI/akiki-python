@@ -1,0 +1,57 @@
+{
+  "architectures": [
+    "AkikiVadForVoiceActivityDetection"
+  ],
+  "context_samples": 320,
+  "convolutions": [
+    {
+      "dilation": 1,
+      "padding": [
+        1,
+        1
+      ],
+      "stride": 1
+    },
+    {
+      "dilation": 1,
+      "padding": [
+        1,
+        1
+      ],
+      "stride": 2
+    },
+    {
+      "dilation": 1,
+      "padding": [
+        1,
+        1
+      ],
+      "stride": 2
+    },
+    {
+      "dilation": 1,
+      "padding": [
+        1,
+        1
+      ],
+      "stride": 1
+    }
+  ],
+  "frontend": {
+    "fft_size": 256,
+    "padding_mode": "reflect",
+    "right_padding": 64,
+    "stft_hop": 128,
+    "window_size": 256
+  },
+  "hidden_size": 128,
+  "hop_samples": 256,
+  "model_id": "akiki-vad-1.0",
+  "model_type": "akiki_vad",
+  "recurrent_type": "gru",
+  "reduction": "single",
+  "sample_rate": 16000,
+  "source_model_id": "teacher-only623-v2-s1730",
+  "threshold": 0.5,
+  "torch_dtype": "float32"
+}

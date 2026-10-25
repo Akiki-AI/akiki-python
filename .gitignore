@@ -1,0 +1,62 @@
+# Python build and distribution artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+*.whl
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.dylib
+*.dll
+
+# Virtual environments and tool caches
+.venv/
+venv/
+/env/
+/ENV/
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.tox/
+.nox/
+
+# Generated verification environments, benchmark outputs, and model caches
+/verification/
+/reports/
+
+# Test coverage and temporary output
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+/.tmp/
+/tmp/
+*.log
+*.tmp
+
+# Local credentials and environment settings
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+.pypirc
+.netrc
+.aws/
+.ssh/
+
+# Local editor and operating-system files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Keep src/akiki/models/ tracked: these assets are required for offline use.

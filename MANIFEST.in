@@ -1,0 +1,4 @@
+include LICENSE README.md
+recursive-include src/akiki/models *.onnx *.pt *.safetensors *.json *.md *.txt
+include tools/build_native.py
+recursive-include tests *.py

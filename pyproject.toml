@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=77.0.3", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "akiki"
+version = "0.0.5"
+description = "Local streaming voice activity detection with Akiki VAD"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{name = "Akiki AI"}]
+keywords = ["vad", "audio", "speech", "voice-activity-detection"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Topic :: Multimedia :: Sound/Audio :: Analysis",
+]
+dependencies = ["numpy>=1.24", "soundfile>=0.12"]
+
+[project.optional-dependencies]
+onnx = ["onnxruntime>=1.17"]
+pytorch = ["torch>=2.1"]
+
+[project.urls]
+Homepage = "https://huggingface.co/Akiki-AI"
+
+[project.scripts]
+akiki = "akiki.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+akiki = ["models/*.onnx", "models/*.pt", "models/*.json", "models/*.md", "models/*.txt", "models/akiki-vad-native/*.json", "models/akiki-vad-native/*.safetensors"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
