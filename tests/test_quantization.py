@@ -190,7 +190,7 @@ def test_cli_uses_default_or_requested_precision(precision, tmp_path, require_ru
     from akiki.__main__ import main
     audio = tmp_path / "audio.wav"
     sf.write(audio, np.zeros(256 * 3), 16000)
-    arguments = ["akiki", str(audio), "--fft-precision", "fp32", "--cache-dir", str(tmp_path / "cache")]
+    arguments = ["akiki", "vad", str(audio), "--fft-precision", "fp32", "--cache-dir", str(tmp_path / "cache")]
     if precision is not None:
         arguments += ["--model-precision", precision]
     monkeypatch.setattr(sys, "argv", arguments)

@@ -64,12 +64,16 @@ help(akiki.SpeechFrame)      # Result fields and timestamp units
 ## Command line
 
 ```bash
-akiki recording.wav
-akiki recording.wav --threshold 0.6
+akiki vad recording.wav
+akiki vad recording.wav --threshold 0.6
+akiki vad --help
 ```
 
 The command prints one JSON object per complete frame, containing its timestamps,
 speech probability, and speech decision.
+
+VAD options follow the `vad` subcommand. Use `akiki --help` to list available
+commands. The equivalent module invocation is `python -m akiki vad recording.wav`.
 
 ## Inference engines
 
@@ -100,9 +104,10 @@ if you want both alternatives. If no engine is available, Akiki raises an error
 with installation instructions.
 
 Choose an engine with `VAD(engine="rust")`, `VAD(engine="onnx")`, or
-`VAD(engine="pytorch")`. The command-line equivalent is `--engine rust`,
-`--engine onnx`, or `--engine pytorch`. An explicitly selected engine raises
-an error if it is unavailable. Check `vad.engine` to see the active engine.
+`VAD(engine="pytorch")`. On the command line, use
+`akiki vad recording.wav --engine rust`, `--engine onnx`, or `--engine pytorch`.
+An explicitly selected engine raises an error if it is unavailable. Check
+`vad.engine` to see the active engine.
 
 All engines use the same bundled model and streaming API.
 
@@ -123,7 +128,7 @@ with VAD(engine="rust", model_precision="fp32") as vad:
 The command-line equivalent is:
 
 ```bash
-akiki recording.wav --model-precision fp32
+akiki vad recording.wav --model-precision fp32
 ```
 
 | `model_precision` | Convolution and GRU projections |
