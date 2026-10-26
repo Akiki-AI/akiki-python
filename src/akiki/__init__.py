@@ -32,5 +32,5 @@ __version__ : str
 """
 from .vad import SpeechFrame, VAD
 
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 __all__ = ["SpeechFrame", "VAD", "__version__"]

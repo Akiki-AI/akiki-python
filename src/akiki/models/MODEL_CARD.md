@@ -1,6 +1,6 @@
 # Akiki VAD — release model, seed 1730
 
-Release ID: `teacher-only623-v2-s1730`. Bundled by `akiki==0.0.5`.
+Release ID: `teacher-only623-v2-s1730`. Bundled by `akiki==0.0.6`.
 
 CNN + GRU128, **210,561 parameters**, full-waveform FP32 ONNX with explicit
 recurrent state. Finite mono float32 audio at 16,000 Hz; **256 new samples per
