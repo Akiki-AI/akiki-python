@@ -21,7 +21,8 @@ the engine supports that architecture and those builds have been tested.
 ```bash
 python3 tools/build_native.py --inference-dir "$AKIKI_INFERENCE_DIR"
 uv build --offline
-AKIKI_NATIVE_LIBRARY="$PWD/.cache/native-target/release/libakiki_vad_engine.so" \
+native="$PWD/.cache/native-target/release"
+AKIKI_NATIVE_LIBRARY="$native/libakiki_vad_engine.so:$native/libakiki_minilm_engine.so" \
     uv build --offline --wheel --out-dir .cache/raw-wheels
 version=$(python3 verify_dist.py --version)
 uv tool run --offline --with patchelf auditwheel repair \
@@ -33,8 +34,18 @@ python3 verify_dist.py --all-wheels --require-native
 These commands use cached build tools and dependencies. Models must come from
 the existing local package assets; never download model artifacts as part of
 a build. The portable wheel and source archive include the same model assets.
-The native wheel adds the compiled Rust library and is preferred by pip and uv
-on compatible hosts. Other hosts must install an optional runtime using
+The native wheel adds the compiled Rust VAD and MiniLM libraries and is
+preferred by pip and uv on compatible hosts. `AKIKI_NATIVE_LIBRARY` lists the
+libraries to bundle, separated by `:` (`;` on Windows); `verify_dist.py`
+requires both in every native wheel.
+
+MiniLM weights are never bundled. Users pass a local model path to
+`akiki.MiniLM`. The test suite writes tiny random checkpoints and adapters to
+test the binding without real weights. For the real-model tests, set
+`AKIKI_MINILM_MODEL` to a local checkpoint or Ariadne variant folder. A Clover
+release's recorded test predictions are checked automatically. Set
+`AKIKI_MINILM_REFERENCES` to PyTorch reference JSONL for that model, in the
+format of the engine's local-model tests, to check embeddings and logits. Other hosts must install an optional runtime using
 `akiki[onnx]` or `akiki[pytorch]`. The base package requires neither runtime;
 verify that the extras remain independent in every release artifact.
 
@@ -49,7 +60,8 @@ Validate the Markdown and metadata with `twine check` for every new artifact.
 Test a clean install with both portable and platform wheels available and
 confirm that `VAD().engine` reports `rust`, loading the installed library.
 Confirm that `VAD().model_precision` is `int8` and `VAD().fft_precision` is
-`fp32`. When no precision is specified, optional ONNX and PyTorch engines use
+`fp32`, and that `akiki.minilm._load_library()` loads the installed MiniLM
+library. When no precision is specified, optional ONNX and PyTorch engines use
 FP32; an explicit non-FP32 request must require Rust.
 
 ## Publish from GitHub Actions
@@ -62,7 +74,7 @@ Models come exclusively from `src/akiki/models/`; no model is downloaded.
 Pushes to `main` and manual runs from the Actions tab build and test without
 publishing. Publishing a GitHub release runs the same checks and then uploads
 the verified artifacts to PyPI using Trusted Publishing. The release tag must
-be `v` followed by the version in `pyproject.toml`, for example `v0.0.6`. Update
+be `v` followed by the version in `pyproject.toml`, for example `v0.1.0`. Update
 all the version locations listed above first, and use a version that has not
 already been uploaded to PyPI.
 
@@ -71,7 +83,9 @@ The existing PyPI `akiki` project must trust owner `Akiki-AI`, repository
 blank. Only the publishing job has `id-token: write`; no PyPI token is stored.
 
 The native source is pinned by `AKIKI_INFERENCE_REV` in the workflow. Update
-that commit deliberately when changing the engine. Both repositories remain
+that commit deliberately when changing the engine. It must be reachable on
+GitHub, preferably on `main`, and its MiniLM C ABI (`src/ffi.rs` in
+`akiki-minilm-engine`) must match `src/akiki/minilm.py`. Both repositories remain
 private. Source checkout uses a dedicated read-only SSH deploy key:
 
 1. Enable deploy keys in the organization's settings if they are disabled.

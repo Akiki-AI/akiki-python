@@ -97,16 +97,16 @@ for wheel in wheels:
         require(set(tags) == {f'{python_tag}-{abi_tag}-{platform}' for platform in platform_tag.split('.')},
                 'Wheel filename and internal tags differ')
         if libraries:
-            require(len(libraries) == 1, 'Expected one native engine library')
             require(wheel_metadata['Root-Is-Purelib'] == 'false', 'Native wheel marked pure')
             require(all(tag.startswith('py3-none-') for tag in tags), 'Wrong native Python/ABI tag')
             for platform in platform_tag.split('.'):
                 require(platform.startswith(('manylinux', 'musllinux', 'macosx_', 'win')), 'Native wheel needs a PyPI-compatible platform tag')
-                expected_name = ('akiki_vad_engine.dll' if platform.startswith('win') else
-                                 'libakiki_vad_engine.dylib' if platform.startswith('macosx_') else 'libakiki_vad_engine.so')
-                require(libraries == ['akiki/native/'+expected_name], 'Wrong native library for platform')
+                expected = sorted('akiki/native/'+(f'{stem}.dll' if platform.startswith('win') else
+                                                  f'lib{stem}.dylib' if platform.startswith('macosx_') else f'lib{stem}.so')
+                                  for stem in ('akiki_vad_engine', 'akiki_minilm_engine'))
+                require(sorted(libraries) == expected, 'Native wheel needs the VAD and MiniLM libraries for its platform')
             native_count += 1
-            info['native_library_sha256'] = hashlib.sha256(archive.read(libraries[0])).hexdigest()
+            info['native_libraries_sha256'] = {name: hashlib.sha256(archive.read(name)).hexdigest() for name in sorted(libraries)}
         else:
             require(tags == ['py3-none-any'] and wheel_metadata['Root-Is-Purelib'] == 'true', 'Non-native wheel must be portable')
         info['tags'] = tags

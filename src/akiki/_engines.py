@@ -102,20 +102,20 @@ class PytorchBackend(Backend):
         self.model = None
 
 
-def library_name():
+def library_name(stem="akiki_vad_engine"):
     if sys.platform == "win32":
-        return "akiki_vad_engine.dll"
+        return f"{stem}.dll"
     if sys.platform == "darwin":
-        return "libakiki_vad_engine.dylib"
-    return "libakiki_vad_engine.so"
+        return f"lib{stem}.dylib"
+    return f"lib{stem}.so"
 
 
-def library_candidates(library_path=None):
-    explicit = library_path or os.environ.get("AKIKI_VAD_LIBRARY")
+def library_candidates(library_path=None, stem="akiki_vad_engine", variable="AKIKI_VAD_LIBRARY"):
+    explicit = library_path or os.environ.get(variable)
     if explicit:
         yield Path(explicit).expanduser()
         return
-    name = library_name()
+    name = library_name(stem)
     yield Path(__file__).parent / "native" / name
     # The offline build helper keeps artifacts inside the Python workspace.
     source_root = Path(__file__).resolve().parents[2]

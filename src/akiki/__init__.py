@@ -25,12 +25,17 @@ Use ``help(akiki.VAD)`` for configuration and engine requirements,
 ``help(akiki.VAD.push)`` for audio input rules, and ``help(akiki.SpeechFrame)``
 for the result fields.
 
+``MiniLM`` runs local MiniLM text models: sentence embeddings from plain
+checkpoints, and Akiki Ariadne variants such as classifiers. Their weights are
+not bundled; pass the path to a local copy. See ``help(akiki.MiniLM)``.
+
 Attributes
 ----------
 __version__ : str
     Installed Akiki package version.
 """
+from .minilm import Classification, Encoding, MiniLM
 from .vad import SpeechFrame, VAD
 
-__version__ = "0.0.6"
-__all__ = ["SpeechFrame", "VAD", "__version__"]
+__version__ = "0.1.0"
+__all__ = ["Classification", "Encoding", "MiniLM", "SpeechFrame", "VAD", "__version__"]

@@ -6,6 +6,9 @@ import shutil
 import subprocess
 import sys
 
+# Shared libraries loaded by akiki.VAD and akiki.MiniLM.
+PACKAGES = ("akiki-vad-engine", "akiki-minilm-engine")
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -27,17 +30,20 @@ def main():
     for key in ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "CARGO_BUILD_TARGET"):
         env.pop(key, None)
     env["RUSTFLAGS"] = ""
-    subprocess.run([cargo, "build", "--offline", "--locked", "--release", "--lib",
-                    "--package", "akiki-vad-engine", "--manifest-path", str(manifest),
+    packages = [arg for package in PACKAGES for arg in ("--package", package)]
+    subprocess.run([cargo, "build", "--offline", "--locked", "--release", "--lib", *packages,
+                    "--manifest-path", str(manifest),
                     "--target-dir", str(args.target_dir.resolve()),
                     "--config", 'build.rustflags=[]'],
                    env=env, cwd=Path(__file__).resolve().parents[1], check=True)
-    name = ("akiki_vad_engine.dll" if sys.platform == "win32" else
-            "libakiki_vad_engine.dylib" if sys.platform == "darwin" else "libakiki_vad_engine.so")
-    library = args.target_dir.resolve() / "release" / name
-    if not library.is_file():
-        parser.error(f"Rust build did not produce {library}")
-    print(library)
+    for package in PACKAGES:
+        stem = package.replace("-", "_")
+        name = (f"{stem}.dll" if sys.platform == "win32" else
+                f"lib{stem}.dylib" if sys.platform == "darwin" else f"lib{stem}.so")
+        library = args.target_dir.resolve() / "release" / name
+        if not library.is_file():
+            parser.error(f"Rust build did not produce {library}")
+        print(library)
 
 
 if __name__ == "__main__":

@@ -19,7 +19,7 @@ env:
   PYTHONDONTWRITEBYTECODE: "1"
   AKIKI_CACHE_DIR: ${{ github.workspace }}/.cache/models
   # Keep the native build tied to the tested engine source.
-  AKIKI_INFERENCE_REV: 159af1fac753ec2bcf094e56368ef64094024fe7
+  AKIKI_INFERENCE_REV: 6952087e6dca01d776589b8f34eb8153c5c461e4
 
 jobs:
   build:
@@ -73,8 +73,9 @@ jobs:
         run: |
           cargo test --offline --locked --manifest-path .cache/akiki-inference/Cargo.toml -p akiki-vad-engine --test safetensors
           cargo test --offline --locked --manifest-path .cache/akiki-inference/Cargo.toml -p akiki-vad-engine --lib config_tests
+          cargo test --offline --locked --manifest-path .cache/akiki-inference/Cargo.toml -p akiki-minilm-engine
 
-      - name: Build native engine offline
+      - name: Build native engines offline
         run: python tools/build_native.py --inference-dir .cache/akiki-inference
 
       - name: Build portable wheel and source archive
@@ -82,7 +83,8 @@ jobs:
 
       - name: Build and repair native wheel
         run: |
-          AKIKI_NATIVE_LIBRARY="$PWD/.cache/native-target/release/libakiki_vad_engine.so" \
+          native="$PWD/.cache/native-target/release"
+          AKIKI_NATIVE_LIBRARY="$native/libakiki_vad_engine.so:$native/libakiki_minilm_engine.so" \
             python -m build --no-isolation --wheel --outdir .cache/raw-wheels
           auditwheel repair --plat manylinux_2_34_x86_64 --wheel-dir dist .cache/raw-wheels/*.whl
 
@@ -91,9 +93,12 @@ jobs:
           python verify_dist.py --all-wheels --require-native
           python -m twine check --strict dist/*
 
-      - name: Run Python tests with the native engine required
+      # MiniLM weights are not bundled or downloaded: tiny generated models test the
+      # MiniLM binding, and the real-model tests skip.
+      - name: Run Python tests with the native engines required
         env:
           AKIKI_VAD_TEST_RUST: "1"
+          AKIKI_MINILM_TEST_RUST: "1"
         run: python -m pytest -q
 
       - name: Test native wheel in a clean base installation
@@ -105,6 +110,7 @@ jobs:
           import importlib.util
           from pathlib import Path
           import akiki
+          from akiki.minilm import _load_library
           import numpy as np
 
           assert importlib.util.find_spec("onnxruntime") is None
@@ -114,7 +120,8 @@ jobs:
               assert vad.model_precision == "int8" and vad.fft_precision == "fp32"
               assert Path(vad._backend.lib._name).parent == Path(akiki.__file__).parent / "native"
               assert len(vad.push(np.zeros(256 * 3 + 17, np.float32))) == 3
-          print("Native wheel: bundled Rust engine, INT8, base dependencies only")
+          assert _load_library()[1].parent == Path(akiki.__file__).parent / "native"
+          print("Native wheel: bundled Rust engines, INT8, base dependencies only")
           PY
 
       - name: Test portable wheel with the ONNX extra

@@ -2,9 +2,11 @@
 
 Akiki is a lightweight Python package for streaming voice activity detection.
 It identifies speech in audio and returns a speech probability, a speech/silence
-decision, and timestamps for each 16 ms frame.
+decision, and timestamps for each 16 ms frame. It can also run local MiniLM text
+models for sentence embeddings and classification; see
+[MiniLM text models](#minilm-text-models).
 
-The model is included in the package. Processing runs locally, without a model
+The VAD model is included in the package. Processing runs locally, without a model
 download, network connection, or external service. The Rust engine uses INT8
 model inference by default, with an FP32 FFT.
 
@@ -186,6 +188,86 @@ higher is better. Scores use 30 TEN recordings and 48 VoxConverse recordings,
 averaging pairs of 16 ms predictions against the existing 32 ms labels, without
 time shifts or smoothing. These are development benchmarks: the small AP
 differences do not establish a statistically significant accuracy improvement.
+
+## MiniLM text models
+
+`akiki.MiniLM` runs MiniLM sentence encoders locally with the Rust engine. It
+loads plain checkpoints, such as `sentence-transformers/all-MiniLM-L6-v2`, and
+Akiki Ariadne variants that add a small adapter to the frozen encoder, such as
+the Akiki MiniLM-L6-v2 Clover intent classifier.
+
+The MiniLM weights are not included in the package, and Akiki never downloads
+them. Pass the path to a local copy when creating the model:
+
+```python
+from akiki import MiniLM
+
+with MiniLM("path/to/all-MiniLM-L6-v2") as model:
+    vectors = model.embed(["A man is eating food.", "Someone is eating a meal."])
+    print(vectors[0] @ vectors[1])  # cosine similarity, about 0.78
+```
+
+Embeddings are float32 NumPy arrays, mean-pooled and L2-normalized, so their dot
+products are cosine similarities. `embed()` accepts one string or a list.
+
+Variants with a head classify text in their own input format:
+
+```python
+with MiniLM("path/to/Akiki-MiniLM-L6-v2-clover-intent") as model:
+    result = model.classify("Current user message: Restart my web server.")
+    print(result.label, result.probabilities[result.index])  # task, about 0.92
+
+    follow_up = model.classify(
+        "Conversation context:\n"
+        "assistant: Would you like me to check whether last night's backup ran?\n\n"
+        "Current user message: yes")
+    print(follow_up.label)  # question
+```
+
+Each classification has the most probable output's `index` and `label`, the
+`probabilities` of every output, and the raw `logits`. Probabilities are a plain
+softmax, without calibration.
+
+A model folder is either a checkpoint with `config.json`, `model.safetensors`,
+and `tokenizer.json`, or a variant folder holding that checkpoint in
+`base_model/` beside `adapter.safetensors`. A variant's optional
+`model_config.json` names its outputs (`labels`) and sets a chunk length for long
+text (`max_length`). Pass `adapter_path` to use an adapter stored elsewhere, or a
+variant's `base_model` folder to use the plain encoder.
+
+Each sequence may contain up to 512 tokens, including special tokens. Longer
+text raises `ValueError` rather than being truncated, unless `chunk_tokens` is
+set. Chunked text is split into sequences of at most that many tokens, and their
+embeddings are combined by a mean weighted by their text tokens. Retrieval
+variants trained this way set `max_length`, so chunking is automatic.
+sentence-transformers truncates all-MiniLM-L6-v2 input after 256 tokens instead,
+so its embeddings of longer text differ.
+
+For task-specific inputs, such as typed decisions, `tokenize()` and
+`encode_chunks()` give direct control over the chunks and their weights;
+`encode()` returns both the embedding and any head logits. One model can be
+shared between threads; its calls run one at a time.
+
+MiniLM requires the Rust engine included in Linux x86_64 wheels; it has no ONNX
+or PyTorch alternative. It uses up to four CPU threads by default; set
+`threads` to change this. Projections use INT8 by default. Choose
+`model_precision="fp32"` to use the original weights, or `fp16`, `bf16`,
+`int8-fp32-input`, `int4`, or `int4-g32`. Weights are converted in memory when
+the model loads; the files are unchanged. Attention, normalization, and pooling
+remain FP32. Lower precision uses less memory but can change embeddings,
+probabilities and, for borderline inputs, the label.
+
+On the command line:
+
+```bash
+akiki minilm --model path/to/all-MiniLM-L6-v2 "A man is eating food."
+akiki minilm --model path/to/Akiki-MiniLM-L6-v2-clover-intent \
+    "Current user message: Restart my web server."
+akiki minilm --help
+```
+
+The command prints JSON: the classification for models with a head, and the
+embedding otherwise. Add `--embedding` to include the embedding as well.
 
 ## License
 
