@@ -35,7 +35,7 @@ def main():
         parser.error("--zig requires --target and an existing cargo-zigbuild installation")
     env = os.environ.copy()
     env["CARGO_NET_OFFLINE"] = "true"
-    # Use the baseline CPU; ARM64 has portable scalar VAD layers.
+    # Use the baseline CPU; ISA-specific kernels are selected at runtime.
     # Do not inherit target-cpu=native from a developer's shell into a release.
     for key in ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "CARGO_BUILD_TARGET"):
         env.pop(key, None)

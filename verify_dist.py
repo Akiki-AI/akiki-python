@@ -44,7 +44,7 @@ def check_metadata(data):
     require(metadata['Name'] == 'akiki' and metadata['Version'] == version, 'Wrong package name/version')
     require(tuple(map(int, metadata['Metadata-Version'].split('.'))) >= (2, 4), 'License-File requires metadata >=2.4')
     require(metadata['License-Expression'] == 'Apache-2.0', 'Wrong licence expression')
-    require(metadata.get_all('License-File') == ['LICENSE'], 'Wrong licence files')
+    require(metadata.get_all('License-File') == ['LICENSE', 'THIRD_PARTY_NOTICES.txt'], 'Wrong licence files')
     require(metadata['License'] is None, 'Legacy licence metadata present')
     require(metadata['Description-Content-Type'] == 'text/markdown', 'Description must be Markdown')
     require(metadata.get_payload().strip() == (root/'README.md').read_text().strip(),
@@ -88,7 +88,8 @@ checks['wheels'] = {}
 for wheel in wheels:
     with zipfile.ZipFile(wheel) as archive:
         info = check_metadata(archive.read(f'akiki-{version}.dist-info/METADATA'))
-        require(archive.read(f'akiki-{version}.dist-info/licenses/LICENSE') == (root/'LICENSE').read_bytes(), 'Wheel licence differs')
+        for name in ['LICENSE', 'THIRD_PARTY_NOTICES.txt']:
+            require(archive.read(f'akiki-{version}.dist-info/licenses/{name}') == (root/name).read_bytes(), f'Wheel licence differs: {name}')
         info['model'] = check_models(archive.read, archive.namelist())
         for path in (root/'src/akiki').glob('*.py'):
             require(archive.read('akiki/'+path.name) == path.read_bytes(), f'Stale Python module: {path.name}')
@@ -133,7 +134,8 @@ with tarfile.open(source) as archive:
         return archive.extractfile(f'akiki-{version}/src/'+name).read()
     checks['sdist'] = check_metadata(archive.extractfile(f'akiki-{version}/PKG-INFO').read())
     require(archive.extractfile(f'akiki-{version}/README.md').read() == (root/'README.md').read_bytes(), 'Source README differs')
-    require(archive.extractfile(f'akiki-{version}/LICENSE').read() == (root/'LICENSE').read_bytes(), 'Source licence differs')
+    for name in ['LICENSE', 'THIRD_PARTY_NOTICES.txt']:
+        require(archive.extractfile(f'akiki-{version}/{name}').read() == (root/name).read_bytes(), f'Source licence differs: {name}')
     source_prefix = f'akiki-{version}/src/'
     checks['sdist']['model'] = check_models(source_read, [name[len(source_prefix):] for name in archive.getnames() if name.startswith(source_prefix) and archive.getmember(name).isfile()])
 result_path = root/'verification'/version/('result.json' if args.wheel is None else f'{args.wheel.stem}.json')

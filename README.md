@@ -83,12 +83,13 @@ Linux x86_64 wheels include the compiled Rust engine for systems with glibc
 2.34 or later. Pip and uv select the compatible wheel automatically; no Rust
 toolchain is needed to install it.
 
-Version **0.1.1** adds **experimental Linux ARM64 VAD support**, including
-Raspberry Pi 5 with a 64-bit OS and glibc 2.28 or later. Install with
-`pip install akiki==0.1.1`. This wheel includes the Rust VAD library and supports
-all six VAD precision modes with the same INT8 default. It uses portable scalar
-layers; physical Raspberry Pi performance has not been measured. MiniLM is
-unsupported in the ARM64 wheel.
+Version **0.1.2** includes **Linux ARM64 VAD support**, including Raspberry Pi 5
+with a 64-bit OS and glibc 2.28 or later. This wheel includes the Rust VAD library
+and supports all six VAD precision modes with the same INT8 default. INT8
+projections automatically use KleidiAI Neon DotProd kernels on compatible CPUs,
+with a portable fallback on older ARM64 CPUs. Other precisions retain portable
+execution. The optimized path has been tested on a physical Raspberry Pi 5.
+MiniLM remains unsupported in the ARM64 wheel.
 
 Akiki selects the Rust engine when a compatible native library is available,
 then tries ONNX Runtime and PyTorch if they are installed. Both are optional;

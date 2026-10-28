@@ -61,11 +61,14 @@ build helper selects only VAD on ARM64. For cross-compilation, it also accepts
 `cargo-zigbuild`, and Zig installation. Cross-build output is under
 `.cache/native-target/aarch64-unknown-linux-gnu/release/`.
 
-ARM64 VAD uses portable scalar layers. Keep it marked experimental until it has
-been measured on physical Raspberry Pi hardware. Release 0.1.1 keeps that exact
-PyPI version and marks its GitHub release as a prerelease titled experimental;
-the version is not a PEP 440 prerelease. The README describes ARM64's limited
-support and the metadata retains the Alpha development classifier.
+ARM64 INT8 projections use the pinned KleidiAI kernel subset through the shared
+Rust layer/kernel crates. Release builds keep the baseline ARM64 target and
+select Neon DotProd at runtime; older CPUs and other precisions retain portable
+execution. The backend was measured and checked bitwise on a physical Pi 5.
+CI also runs shared kernel/layer tests and quantized VAD streaming tests on its
+native ARM64 builder. Include THIRD_PARTY_NOTICES.txt in every artifact and
+preserve its Arm copyright and Apache-2.0 terms when updating the pinned engine.
+The package remains Alpha; MiniLM is still supported only in the x86_64 wheel.
 
 MiniLM weights are never bundled. Users pass a local model path to
 `akiki.MiniLM`. The test suite writes tiny random checkpoints and adapters to

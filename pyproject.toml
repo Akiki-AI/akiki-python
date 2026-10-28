@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "akiki"
-version = "0.1.1"
+version = "0.1.2"
 description = "Local streaming voice activity detection and MiniLM text models"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.txt"]
 authors = [{name = "Akiki AI"}]
 keywords = ["vad", "audio", "speech", "voice-activity-detection", "minilm", "sentence-embeddings", "text-classification"]
 classifiers = [

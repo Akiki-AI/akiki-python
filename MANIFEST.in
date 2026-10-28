@@ -1,4 +1,4 @@
-include LICENSE README.md
+include LICENSE THIRD_PARTY_NOTICES.txt README.md
 recursive-include src/akiki/models *.onnx *.pt *.safetensors *.json *.md *.txt
 include tools/build_native.py
 recursive-include tests *.py
