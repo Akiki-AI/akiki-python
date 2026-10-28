@@ -6,6 +6,11 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the current version after verification (requires an existing release tag)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -258,10 +263,11 @@ jobs:
 
   publish:
     name: Publish to PyPI
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.publish)
     needs: [build, build-arm64]
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       id-token: write
     steps:
       - name: Check out release verification
@@ -275,6 +281,24 @@ jobs:
           pattern: python-distributions-*
           merge-multiple: true
           path: dist/
+
+      - name: Verify tagged source for a manual publication retry
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(python3 verify_dist.py --version)"
+          gh release view "v$version" --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName
+          gh api "repos/$GITHUB_REPOSITORY/compare/v$version...$GITHUB_SHA" \
+            --jq '.files[].filename' > "$RUNNER_TEMP/release-changes.txt"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          changed = set((Path(os.environ["RUNNER_TEMP"]) / "release-changes.txt").read_text().splitlines())
+          allowed = {".github/workflows/publish.yml", "docs/releasing.md"}
+          if changed - allowed:
+              raise SystemExit("Manual publication must use tagged package source; only CI/release docs may differ")
+          PY
 
       - name: Verify both native architectures before publishing
         run: python3 verify_dist.py --all-wheels --require-native --require-arm64

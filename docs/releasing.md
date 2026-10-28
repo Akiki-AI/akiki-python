@@ -102,11 +102,17 @@ native loader, Python API, and clean installations before saving the artifacts.
 Models come exclusively from `src/akiki/models/`; no model is downloaded.
 
 Pushes to `main` and manual runs from the Actions tab build and test without
-publishing. Publishing a GitHub release runs the same checks and then uploads
+publishing by default. Publishing a GitHub release runs the same checks and then uploads
 the verified artifacts to PyPI using Trusted Publishing. The release tag must
 be `v` followed by the version in `pyproject.toml`, for example `v0.1.0`. Update
 all the version locations listed above first, and use a version that has not
 already been uploaded to PyPI.
+
+If publication fails before uploading, fix the workflow on the release branch
+and run it manually with the `publish` input enabled. The retry requires an
+existing GitHub release and checks that package source matches its version tag;
+only the workflow and this release document may differ. This preserves the tag
+while allowing CI-only repairs. Both native build jobs run again before upload.
 
 The existing PyPI `akiki` project must trust owner `Akiki-AI`, repository
 `akiki-python`, workflow filename `publish.yml`, with the environment left
