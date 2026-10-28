@@ -15,8 +15,9 @@ Previously uploaded filenames cannot be replaced. Keep previous artifacts intact
 ## Build the Linux x86_64 release
 
 Use an existing local Rust toolchain, Cargo cache and `akiki-inference` checkout.
-The engine currently supports x86_64. Do not advertise ARM64 Rust wheels until
-the engine supports that architecture and those builds have been tested.
+The x86_64 wheel includes VAD and MiniLM. Starting with 0.1.1, the experimental
+ARM64 wheel includes VAD only. The pinned Rust revision supports both VAD
+architectures; MiniLM remains unsupported in the ARM64 package.
 
 ```bash
 python3 tools/build_native.py --inference-dir "$AKIKI_INFERENCE_DIR"
@@ -37,7 +38,34 @@ a build. The portable wheel and source archive include the same model assets.
 The native wheel adds the compiled Rust VAD and MiniLM libraries and is
 preferred by pip and uv on compatible hosts. `AKIKI_NATIVE_LIBRARY` lists the
 libraries to bundle, separated by `:` (`;` on Windows); `verify_dist.py`
-requires both in every native wheel.
+requires both on x86_64 and only VAD on ARM64. Linux wheel architecture is
+derived from the ELF libraries, so cross-built ARM64 libraries cannot be
+accidentally labelled as x86_64.
+
+## Build the experimental Linux ARM64 VAD wheel
+
+On a native ARM64 Linux builder with cached tools and Cargo dependencies:
+
+```bash
+python3 tools/build_native.py --inference-dir "$AKIKI_INFERENCE_DIR"
+native="$PWD/.cache/native-target/release/libakiki_vad_engine.so"
+AKIKI_NATIVE_LIBRARY="$native" uv build --offline --wheel --out-dir .cache/raw-wheels
+uv tool run --offline --with patchelf auditwheel repair \
+    --plat manylinux_2_28_aarch64 --wheel-dir dist .cache/raw-wheels/*aarch64.whl
+python3 verify_dist.py --all-wheels --require-native --require-arm64
+```
+
+Build the source archive alongside the wheels before verification. The native
+build helper selects only VAD on ARM64. For cross-compilation, it also accepts
+`--target aarch64-unknown-linux-gnu.2.28 --zig` with an existing ARM64 Rust std,
+`cargo-zigbuild`, and Zig installation. Cross-build output is under
+`.cache/native-target/aarch64-unknown-linux-gnu/release/`.
+
+ARM64 VAD uses portable scalar layers. Keep it marked experimental until it has
+been measured on physical Raspberry Pi hardware. Release 0.1.1 keeps that exact
+PyPI version and marks its GitHub release as a prerelease titled experimental;
+the version is not a PEP 440 prerelease. The README describes ARM64's limited
+support and the metadata retains the Alpha development classifier.
 
 MiniLM weights are never bundled. Users pass a local model path to
 `akiki.MiniLM`. The test suite writes tiny random checkpoints and adapters to
@@ -67,7 +95,9 @@ FP32; an explicit non-FP32 request must require Rust.
 ## Publish from GitHub Actions
 
 The workflow is `.github/workflows/publish.yml`. It builds and verifies the
-portable wheel, source archive, and Linux x86_64 native wheel. It tests the
+portable wheel, source archive, Linux x86_64 native wheel, and experimental
+Linux ARM64 VAD wheel. ARM64 builds in manylinux_2_28 on a native ARM64 runner;
+x86_64 retains the glibc 2.34 floor. Both jobs must pass before publishing. It tests the
 native loader, Python API, and clean installations before saving the artifacts.
 Models come exclusively from `src/akiki/models/`; no model is downloaded.
 
@@ -98,7 +128,7 @@ The private key must never be committed. It is used only for source checkout
 and is separate from PyPI Trusted Publishing. To rotate it, install a new
 public key and update the secret before deleting the old deploy key.
 
-The workflow targets glibc 2.34 and newer. Auditwheel must verify that floor;
+The x86_64 workflow targets glibc 2.34 and ARM64 targets glibc 2.28. Auditwheel must verify those floors;
 a build that needs newer libc symbols fails rather than publishing a renamed
 wheel. The engine's self-contained safetensors and configuration tests run in
 CI; legacy Rust tests that require external `.akv` fixtures are not part of

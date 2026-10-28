@@ -2,6 +2,7 @@
 import os
 from pathlib import Path
 import shutil
+import struct
 
 from setuptools import Distribution, setup
 from setuptools.command.build_py import build_py
@@ -27,6 +28,28 @@ def native_libraries():
     return paths
 
 
+def linux_platform(libraries):
+    """Derive Linux wheel architecture from the actual ELF libraries, including cross-builds."""
+    if not libraries or not all(path.suffix == ".so" for path in libraries):
+        return None
+    architectures = set()
+    for path in libraries:
+        with path.open("rb") as source:
+            header = source.read(20)
+        if len(header) != 20 or header[:6] != b"\x7fELF\x02\x01":
+            raise ValueError(f"Expected a little-endian ELF64 library: {path.name}")
+        machine = struct.unpack_from("<H", header, 18)[0]
+        if machine not in {62, 183}:
+            raise ValueError(f"Unsupported ELF architecture in {path.name}: {machine}")
+        architectures.add(machine)
+    if len(architectures) != 1:
+        raise ValueError("Native libraries must have the same architecture")
+    machine = architectures.pop()
+    if machine == 183 and {path.name for path in libraries} != {"libakiki_vad_engine.so"}:
+        raise ValueError("Experimental ARM64 wheels support VAD only")
+    return "linux_aarch64" if machine == 183 else "linux_x86_64"
+
+
 class BuildPy(build_py):
     def run(self):
         super().run()
@@ -49,8 +72,10 @@ class BdistWheel(bdist_wheel):
 
     def get_tag(self):
         python, abi, platform = super().get_tag()
+        libraries = native_libraries()
+        platform = linux_platform(libraries) or platform
         # ctypes uses the C ABI; this library has no CPython ABI dependency.
-        return ("py3", "none", platform) if native_libraries() else (python, abi, platform)
+        return ("py3", "none", platform) if libraries else (python, abi, platform)
 
 
 class BinaryDistribution(Distribution):
@@ -58,4 +83,5 @@ class BinaryDistribution(Distribution):
         return bool(native_libraries()) or super().has_ext_modules()
 
 
-setup(distclass=BinaryDistribution, cmdclass={"build_py": BuildPy, "bdist_wheel": BdistWheel})
+if __name__ == "__main__":
+    setup(distclass=BinaryDistribution, cmdclass={"build_py": BuildPy, "bdist_wheel": BdistWheel})

@@ -19,6 +19,7 @@ parser.add_argument('--dist-dir', type=Path, default=root/'dist')
 parser.add_argument('--wheel', type=Path, help='Specific platform wheel to verify against the same source archive')
 parser.add_argument('--all-wheels', action='store_true', help='Verify all wheels for this version')
 parser.add_argument('--require-native', action='store_true', help='Require at least one wheel with the Rust library')
+parser.add_argument('--require-arm64', action='store_true', help='Require the experimental ARM64 VAD wheel')
 args = parser.parse_args()
 if args.wheel and args.all_wheels:
     parser.error('--wheel and --all-wheels are mutually exclusive')
@@ -82,6 +83,7 @@ require(wheels, 'No wheels found for this version')
 require(not re.search(r'/home/|/Users/|/mnt/|[A-Za-z]:\\Users\\', (root/'README.md').read_text()),
         'Public README contains a private machine path')
 native_count = 0
+arm64_count = 0
 checks['wheels'] = {}
 for wheel in wheels:
     with zipfile.ZipFile(wheel) as archive:
@@ -101,11 +103,23 @@ for wheel in wheels:
             require(all(tag.startswith('py3-none-') for tag in tags), 'Wrong native Python/ABI tag')
             for platform in platform_tag.split('.'):
                 require(platform.startswith(('manylinux', 'musllinux', 'macosx_', 'win')), 'Native wheel needs a PyPI-compatible platform tag')
+                arm64 = platform.endswith('_aarch64')
+                stems = ('akiki_vad_engine',) if arm64 else ('akiki_vad_engine', 'akiki_minilm_engine')
                 expected = sorted('akiki/native/'+(f'{stem}.dll' if platform.startswith('win') else
                                                   f'lib{stem}.dylib' if platform.startswith('macosx_') else f'lib{stem}.so')
-                                  for stem in ('akiki_vad_engine', 'akiki_minilm_engine'))
-                require(sorted(libraries) == expected, 'Native wheel needs the VAD and MiniLM libraries for its platform')
+                                  for stem in stems)
+                require(sorted(libraries) == expected, 'Native libraries do not match platform support (ARM64: VAD only)')
+                if platform.startswith(('manylinux', 'musllinux')):
+                    machine = 183 if arm64 else 62
+                    for name in libraries:
+                        header = archive.read(name)[:20]
+                        require(header[:6] == b'\x7fELF\x02\x01' and
+                                int.from_bytes(header[18:20], 'little') == machine,
+                                'Bundled ELF architecture differs from the wheel tag')
             native_count += 1
+            if any(platform.endswith('_aarch64') for platform in platform_tag.split('.')):
+                arm64_count += 1
+                info['support'] = 'experimental-vad-only'
             info['native_libraries_sha256'] = {name: hashlib.sha256(archive.read(name)).hexdigest() for name in sorted(libraries)}
         else:
             require(tags == ['py3-none-any'] and wheel_metadata['Root-Is-Purelib'] == 'true', 'Non-native wheel must be portable')
@@ -113,6 +127,7 @@ for wheel in wheels:
         checks['wheels'][wheel.name] = info
 require(not args.require_native or native_count > 0,
         'No native wheel found; build and repair the Rust wheel before publishing')
+require(not args.require_arm64 or arm64_count > 0, 'The experimental ARM64 VAD wheel is missing')
 with tarfile.open(source) as archive:
     def source_read(name):
         return archive.extractfile(f'akiki-{version}/src/'+name).read()

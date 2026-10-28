@@ -6,6 +6,8 @@ from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
+import platform
+import sys
 import threading
 import weakref
 
@@ -78,6 +80,8 @@ def _load_library(library_path=None):
             continue
         return lib, candidate.resolve()
     reason = "; ".join(failures) or "no local shared library found"
+    if sys.platform == "linux" and platform.machine().lower() in {"aarch64", "arm64"}:
+        reason += "; experimental ARM64 wheels provide VAD only; MiniLM is unsupported on ARM64"
     raise RuntimeError(f"No compatible MiniLM engine: {reason}. "
                        "Use a native akiki wheel or set AKIKI_MINILM_LIBRARY to a local library")
 

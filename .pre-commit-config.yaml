@@ -1,0 +1,10 @@
+# Checks that run on staged files at every `git commit`.
+# Set up once per clone: `uv tool install pre-commit` and then `pre-commit install`.
+# Check every file without committing: `pre-commit run --all-files`.
+repos:
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+        # Warnings fail the commit too; rules are in .yamllint.yaml.
+        args: [--strict]
