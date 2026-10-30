@@ -3,6 +3,7 @@
 The frontend/CNN follow the Silero v5 design; see models/SILERO-MIT.txt.
 Only imported when PyTorch inference is selected.
 """
+
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -13,12 +14,14 @@ class AkikiModel(nn.Module):
         super().__init__()
         # The exact deterministic Fourier/Hann buffer comes from the checkpoint.
         self.register_buffer("basis", torch.zeros(258, 1, 256))
-        self.encoder = nn.ModuleList([
-            nn.Conv1d(129, 128, 3, padding=1),
-            nn.Conv1d(128, 64, 3, stride=2, padding=1),
-            nn.Conv1d(64, 64, 3, stride=2, padding=1),
-            nn.Conv1d(64, 128, 3, padding=1),
-        ])
+        self.encoder = nn.ModuleList(
+            [
+                nn.Conv1d(129, 128, 3, padding=1),
+                nn.Conv1d(128, 64, 3, stride=2, padding=1),
+                nn.Conv1d(64, 64, 3, stride=2, padding=1),
+                nn.Conv1d(64, 128, 3, padding=1),
+            ]
+        )
         self.rnn = nn.GRU(128, hidden, batch_first=True)
         self.head = nn.Linear(hidden, 1)
 

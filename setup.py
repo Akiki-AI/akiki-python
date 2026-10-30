@@ -1,17 +1,21 @@
 """Optionally bundle prebuilt C-ABI libraries in a platform-specific wheel."""
+
 import os
-from pathlib import Path
 import shutil
 import struct
+from pathlib import Path
 
 from setuptools import Distribution, setup
-from setuptools.command.build_py import build_py
 from setuptools.command.bdist_wheel import bdist_wheel
-
+from setuptools.command.build_py import build_py
 
 LIBRARY_NAMES = {
-    "libakiki_vad_engine.so", "libakiki_vad_engine.dylib", "akiki_vad_engine.dll",
-    "libakiki_minilm_engine.so", "libakiki_minilm_engine.dylib", "akiki_minilm_engine.dll",
+    "libakiki_vad_engine.so",
+    "libakiki_vad_engine.dylib",
+    "akiki_vad_engine.dll",
+    "libakiki_minilm_engine.so",
+    "libakiki_minilm_engine.dylib",
+    "akiki_minilm_engine.dll",
 }
 
 
@@ -20,11 +24,15 @@ def native_libraries():
     value = os.environ.get("AKIKI_NATIVE_LIBRARY")
     if not value:
         return []
-    paths = [Path(item).expanduser().resolve(strict=True) for item in value.split(os.pathsep) if item]
+    paths = [
+        Path(item).expanduser().resolve(strict=True) for item in value.split(os.pathsep) if item
+    ]
     names = [path.name for path in paths]
     if not set(names) <= LIBRARY_NAMES or len(set(names)) != len(names):
-        raise ValueError("AKIKI_NATIVE_LIBRARY must list distinct compiled akiki-vad-engine "
-                         "or akiki-minilm-engine shared libraries")
+        raise ValueError(
+            "AKIKI_NATIVE_LIBRARY must list distinct compiled akiki-vad-engine "
+            "or akiki-minilm-engine shared libraries"
+        )
     return paths
 
 

@@ -40,8 +40,7 @@ audio, sample_rate = sf.read("recording.wav", dtype="float32")
 
 with VAD() as vad:
     for frame in vad.push(audio, sample_rate=sample_rate):
-        print(frame.start_seconds, frame.end_seconds,
-              frame.probability, frame.speech)
+        print(frame.start_seconds, frame.end_seconds, frame.probability, frame.speech)
 ```
 
 For live audio, call `vad.push()` repeatedly with successive audio buffers.
@@ -57,10 +56,10 @@ The public API includes docstrings for editor hints and interactive help:
 ```python
 import akiki
 
-help(akiki.VAD)              # Configuration, attributes, and streaming example
-help(akiki.VAD.__init__)     # Constructor parameters and defaults
-help(akiki.VAD.push)         # Audio input, buffering, results, and errors
-help(akiki.SpeechFrame)      # Result fields and timestamp units
+help(akiki.VAD)  # Configuration, attributes, and streaming example
+help(akiki.VAD.__init__)  # Constructor parameters and defaults
+help(akiki.VAD.push)  # Audio input, buffering, results, and errors
+help(akiki.SpeechFrame)  # Result fields and timestamp units
 ```
 
 ## Command line
@@ -113,11 +112,13 @@ The PyTorch extra does not install ONNX Runtime. Install `akiki[onnx,pytorch]`
 if you want both alternatives. If no engine is available, Akiki raises an error
 with installation instructions.
 
-Choose an engine with `VAD(engine="rust")`, `VAD(engine="onnx")`, or
-`VAD(engine="pytorch")`. On the command line, use
+Import `Engine` from `akiki` and choose an engine with `VAD(engine=Engine.RUST)`,
+`VAD(engine=Engine.ONNX)`, or `VAD(engine=Engine.PYTORCH)`. The default is
+`Engine.AUTO`; the Python API requires enum members. On the command line, use
 `akiki vad recording.wav --engine rust`, `--engine onnx`, or `--engine pytorch`.
 An explicitly selected engine raises an error if it is unavailable. Check
-`vad.engine` to see the active engine.
+`vad.engine` to see the active `Engine` member. `vad.engine_errors` maps
+`Engine` members to the reasons they were unavailable during automatic selection.
 
 All engines use the same bundled model and streaming API.
 
@@ -131,7 +132,9 @@ Choose another precision when creating the detector. For example, to use the
 original FP32 weights:
 
 ```python
-with VAD(engine="rust", model_precision="fp32") as vad:
+from akiki import Engine, ModelPrecision, VAD
+
+with VAD(engine=Engine.RUST, model_precision=ModelPrecision.FP32) as vad:
     frames = vad.push(audio, sample_rate=sample_rate)
 ```
 
@@ -143,14 +146,18 @@ akiki vad recording.wav --model-precision fp32
 
 | `model_precision` | Convolution and GRU projections |
 | --- | --- |
-| `int8` (Rust default) | INT8 weights and dynamically quantized activations |
-| `fp32` | Original FP32 weights and activations |
-| `fp16` | FP16 weights, FP32 activations and accumulation |
-| `bf16` | BF16 weights and projection activations, FP32 accumulation |
-| `int4` | Packed INT4 weights and dynamically quantized INT8 activations |
-| `int8-fp32-input` | INT8 weights; first projection keeps FP32 activations |
+| `ModelPrecision.INT8` (Rust default) | INT8 weights and dynamically quantized activations |
+| `ModelPrecision.FP32` | Original FP32 weights and activations |
+| `ModelPrecision.FP16` | FP16 weights, FP32 activations and accumulation |
+| `ModelPrecision.BF16` | BF16 weights and projection activations, FP32 accumulation |
+| `ModelPrecision.INT4` | Packed INT4 weights and dynamically quantized INT8 activations |
+| `ModelPrecision.INT8_FP32_INPUT` | INT8 weights; first projection keeps FP32 activations |
 
-The FFT stays FP32: `fft_precision` accepts only `"fp32"`. Recurrent state,
+The Python VAD API requires `ModelPrecision` and `FFTPrecision` enum members,
+both exported from `akiki`. Omit `model_precision` or pass `None` to use the
+selected engine's default. CLI precision options retain their lowercase names.
+
+The FFT stays FP32: `fft_precision` accepts only `FFTPrecision.FP32`. Recurrent state,
 nonlinearities, biases, and the output head also remain FP32. Lower precision
 can change speech probabilities; speed depends on the CPU and chosen format.
 
@@ -159,9 +166,9 @@ or installing PyTorch or ONNX Runtime. Generated variants are reused from the
 user cache. Set `cache_dir` or `AKIKI_CACHE_DIR` to choose another location. The
 original weights are preserved; incomplete or corrupt cache entries are rebuilt.
 
-Check `vad.model_precision` and `vad.fft_precision` to inspect the settings.
+Check `vad.model_precision` and `vad.fft_precision` to inspect the enum settings.
 When no model precision is specified, ONNX and PyTorch use FP32, including when
-`engine="auto"` falls back to either runtime. Explicit precision requests are
+`engine=Engine.AUTO` falls back to either runtime. Explicit precision requests are
 always honored: non-FP32 precision requires Rust and raises an error if a
 compatible Rust engine is unavailable.
 
@@ -228,7 +235,8 @@ with MiniLM("path/to/Akiki-MiniLM-L6-v2-clover-intent") as model:
     follow_up = model.classify(
         "Conversation context:\n"
         "assistant: Would you like me to check whether last night's backup ran?\n\n"
-        "Current user message: yes")
+        "Current user message: yes"
+    )
     print(follow_up.label)  # question
 ```
 
@@ -276,6 +284,12 @@ akiki minilm --help
 
 The command prints JSON: the classification for models with a head, and the
 embedding otherwise. Add `--embedding` to include the embedding as well.
+
+## Development
+
+See the [Python style guide](docs/style.md) for enum conventions, development
+setup, and lint commands. Ruff checks Python formatting and imports; commit
+hooks and CI also run YAML linting.
 
 ## License
 

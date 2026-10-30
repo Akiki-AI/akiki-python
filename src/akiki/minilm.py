@@ -1,15 +1,16 @@
 """Local MiniLM sentence encoding and Ariadne adapters with the native Rust engine."""
+
 from __future__ import annotations
 
 import ctypes
-from dataclasses import dataclass
 import json
 import os
-from pathlib import Path
 import platform
 import sys
 import threading
 import weakref
+from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 
@@ -17,7 +18,9 @@ from ._engines import library_candidates
 
 MODEL_PRECISIONS = ("fp32", "fp16", "bf16", "int8", "int8-fp32-input", "int4", "int4-g32")
 # Python precision names follow akiki.VAD; the engine uses its own spellings.
-_ENGINE_PRECISIONS = dict(zip(MODEL_PRECISIONS, ("f32", "f16", "bf16", "int8", "int8-f32", "int4", "int4-g32")))
+_ENGINE_PRECISIONS = dict(
+    zip(MODEL_PRECISIONS, ("f32", "f16", "bf16", "int8", "int8-f32", "int4", "int4-g32"))
+)
 DEFAULT_THREADS = 4
 
 
@@ -69,7 +72,9 @@ class Classification:
 def _load_library(library_path=None):
     """Return the first local MiniLM shared library that binds, and its path."""
     failures = []
-    for candidate in dict.fromkeys(library_candidates(library_path, "akiki_minilm_engine", "AKIKI_MINILM_LIBRARY")):
+    for candidate in dict.fromkeys(
+        library_candidates(library_path, "akiki_minilm_engine", "AKIKI_MINILM_LIBRARY")
+    ):
         if not candidate.is_file():
             continue
         try:
@@ -82,22 +87,33 @@ def _load_library(library_path=None):
     reason = "; ".join(failures) or "no local shared library found"
     if sys.platform == "linux" and platform.machine().lower() in {"aarch64", "arm64"}:
         reason += "; experimental ARM64 wheels provide VAD only; MiniLM is unsupported on ARM64"
-    raise RuntimeError(f"No compatible MiniLM engine: {reason}. "
-                       "Use a native akiki wheel or set AKIKI_MINILM_LIBRARY to a local library")
+    raise RuntimeError(
+        f"No compatible MiniLM engine: {reason}. "
+        "Use a native akiki wheel or set AKIKI_MINILM_LIBRARY to a local library"
+    )
 
 
 def _bind(lib):
     pointer = ctypes.c_void_p
     size = ctypes.c_size_t
     bindings = {
-        "create": ([ctypes.c_char_p, ctypes.c_char_p, size, ctypes.c_char_p, ctypes.c_char_p, size], pointer),
+        "create": (
+            [ctypes.c_char_p, ctypes.c_char_p, size, ctypes.c_char_p, ctypes.c_char_p, size],
+            pointer,
+        ),
         "free": ([pointer], None),
         "max_tokens": ([pointer], size),
         "embedding_size": ([pointer], size),
         "head_size": ([pointer], size),
         "model_bytes": ([pointer], size),
-        "tokenize": ([pointer, ctypes.c_char_p, size, ctypes.c_int32, pointer, size], ctypes.c_ssize_t),
-        "encode": ([pointer, pointer, pointer, size, pointer, pointer, size, pointer, size], ctypes.c_int32),
+        "tokenize": (
+            [pointer, ctypes.c_char_p, size, ctypes.c_int32, pointer, size],
+            ctypes.c_ssize_t,
+        ),
+        "encode": (
+            [pointer, pointer, pointer, size, pointer, pointer, size, pointer, size],
+            ctypes.c_int32,
+        ),
     }
     for name, (args, result) in bindings.items():
         fn = getattr(lib, "akiki_minilm_" + name)
@@ -171,9 +187,16 @@ class MiniLM:
         'task'
     """
 
-    def __init__(self, model_path: str | Path, adapter_path: str | Path | None = None, *,
-                 threads: int | None = None, model_precision: str = "int8",
-                 chunk_tokens: int | None = None, library_path: str | Path | None = None):
+    def __init__(
+        self,
+        model_path: str | Path,
+        adapter_path: str | Path | None = None,
+        *,
+        threads: int | None = None,
+        model_precision: str = "int8",
+        chunk_tokens: int | None = None,
+        library_path: str | Path | None = None,
+    ):
         """Load a local model into the native engine.
 
         Parameters
@@ -218,7 +241,9 @@ class MiniLM:
         if model_precision not in MODEL_PRECISIONS:
             raise ValueError("model_precision must be one of: " + ", ".join(MODEL_PRECISIONS))
         if threads is None:
-            available = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else os.cpu_count()
+            available = (
+                len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else os.cpu_count()
+            )
             threads = min(DEFAULT_THREADS, available or 1)
         if isinstance(threads, bool) or not isinstance(threads, int) or not 1 <= threads <= 256:
             raise ValueError("threads must be an integer from 1 to 256")
@@ -227,7 +252,9 @@ class MiniLM:
         self.model_path = root / "base_model" if (root / "base_model").is_dir() else root
         for name in ("config.json", "model.safetensors", "tokenizer.json"):
             if not (self.model_path / name).is_file():
-                raise FileNotFoundError(f"MiniLM checkpoint file is missing: {self.model_path / name}")
+                raise FileNotFoundError(
+                    f"MiniLM checkpoint file is missing: {self.model_path / name}"
+                )
         if adapter_path is not None:
             self.adapter_path = Path(adapter_path).expanduser()
             if not self.adapter_path.is_file():
@@ -244,10 +271,18 @@ class MiniLM:
         lib, self.library_path = _load_library(library_path)
         error = ctypes.create_string_buffer(1024)
         adapter = str(self.adapter_path.resolve()).encode("utf-8") if self.adapter_path else None
-        handle = lib.akiki_minilm_create(str(self.model_path.resolve()).encode("utf-8"), adapter, threads,
-                                         _ENGINE_PRECISIONS[model_precision].encode("ascii"), error, len(error))
+        handle = lib.akiki_minilm_create(
+            str(self.model_path.resolve()).encode("utf-8"),
+            adapter,
+            threads,
+            _ENGINE_PRECISIONS[model_precision].encode("ascii"),
+            error,
+            len(error),
+        )
         if not handle:
-            raise ValueError(f"MiniLM engine cannot load {root}: {error.value.decode('utf-8', 'replace')}")
+            raise ValueError(
+                f"MiniLM engine cannot load {root}: {error.value.decode('utf-8', 'replace')}"
+            )
         self._lib, self._handle = lib, handle
         self._finalizer = weakref.finalize(self, lib.akiki_minilm_free, handle)
         self._lock = threading.Lock()
@@ -262,11 +297,16 @@ class MiniLM:
         labels = config.get("labels")
         if labels is not None and len(labels) != self.head_size:
             self.close()
-            raise ValueError(f"model_config.json lists {len(labels)} labels for {self.head_size} head outputs")
+            raise ValueError(
+                f"model_config.json lists {len(labels)} labels for {self.head_size} head outputs"
+            )
         self.labels = tuple(labels) if labels is not None else None
         if chunk_tokens is not None:
-            if isinstance(chunk_tokens, bool) or not isinstance(chunk_tokens, int) \
-                    or not 3 <= chunk_tokens <= self.max_tokens:
+            if (
+                isinstance(chunk_tokens, bool)
+                or not isinstance(chunk_tokens, int)
+                or not 3 <= chunk_tokens <= self.max_tokens
+            ):
                 self.close()
                 raise ValueError(f"chunk_tokens must be an integer from 3 to {self.max_tokens}")
             special = self.tokenize("")
@@ -282,12 +322,14 @@ class MiniLM:
 
     def _tokenize(self, data, special_tokens):
         ids = self._ids
-        count = self._lib.akiki_minilm_tokenize(self._handle, data, len(data), int(special_tokens),
-                                                ids.ctypes.data, len(ids))
+        count = self._lib.akiki_minilm_tokenize(
+            self._handle, data, len(data), int(special_tokens), ids.ctypes.data, len(ids)
+        )
         if count > len(ids):
             ids = np.empty(count, dtype=np.uint32)
-            count = self._lib.akiki_minilm_tokenize(self._handle, data, len(data), int(special_tokens),
-                                                    ids.ctypes.data, len(ids))
+            count = self._lib.akiki_minilm_tokenize(
+                self._handle, data, len(data), int(special_tokens), ids.ctypes.data, len(ids)
+            )
         if count < 0:
             raise RuntimeError("MiniLM tokenizer failed")
         return ids[:count].copy()
@@ -299,12 +341,21 @@ class MiniLM:
         embedding = np.empty(self.embedding_size, dtype=np.float32)
         logits = np.empty(self.head_size, dtype=np.float32) if self.head_size else None
         status = self._lib.akiki_minilm_encode(
-            self._handle, ids.ctypes.data, lengths.ctypes.data, len(chunks),
-            None if weights is None else weights.ctypes.data, embedding.ctypes.data, len(embedding),
-            None if logits is None else logits.ctypes.data, 0 if logits is None else len(logits))
+            self._handle,
+            ids.ctypes.data,
+            lengths.ctypes.data,
+            len(chunks),
+            None if weights is None else weights.ctypes.data,
+            embedding.ctypes.data,
+            len(embedding),
+            None if logits is None else logits.ctypes.data,
+            0 if logits is None else len(logits),
+        )
         if status != 0:
-            raise ValueError(f"Each chunk needs 1 to {self.max_tokens} valid token IDs, including special "
-                             "tokens, and a positive finite weight")
+            raise ValueError(
+                f"Each chunk needs 1 to {self.max_tokens} valid token IDs, including special "
+                "tokens, and a positive finite weight"
+            )
         return Encoding(embedding, logits)
 
     def tokenize(self, text: str, special_tokens: bool = True) -> list[int]:
@@ -348,13 +399,15 @@ class MiniLM:
             if self.chunk_tokens is None:
                 ids = self._tokenize(data, True)
                 if len(ids) > self.max_tokens:
-                    raise ValueError(f"Input has {len(ids)} tokens, over the {self.max_tokens}-token limit "
-                                     "including special tokens; it is not truncated. Set chunk_tokens to "
-                                     "encode long text in chunks")
+                    raise ValueError(
+                        f"Input has {len(ids)} tokens, over the {self.max_tokens}-token limit "
+                        "including special tokens; it is not truncated. Set chunk_tokens to "
+                        "encode long text in chunks"
+                    )
                 return self._encode([ids], None)
             tokens = self._tokenize(data, False)
             room = self.chunk_tokens - 2
-            pieces = [tokens[i:i + room] for i in range(0, len(tokens), room)] or [tokens]
+            pieces = [tokens[i : i + room] for i in range(0, len(tokens), room)] or [tokens]
             chunks = [np.concatenate(([self._cls], piece, [self._sep])) for piece in pieces]
             return self._encode(chunks, [max(1, len(piece)) for piece in pieces])
 
@@ -383,8 +436,13 @@ class MiniLM:
         if not arrays or len(arrays) != len(weights):
             raise ValueError("Supply one weight for each of at least one chunk")
         for array in arrays:
-            if array.ndim != 1 or not array.size or not np.issubdtype(array.dtype, np.integer) \
-                    or array.min() < 0 or array.max() > np.iinfo(np.uint32).max:
+            if (
+                array.ndim != 1
+                or not array.size
+                or not np.issubdtype(array.dtype, np.integer)
+                or array.min() < 0
+                or array.max() > np.iinfo(np.uint32).max
+            ):
                 raise ValueError("Each chunk must be a nonempty sequence of token IDs")
         with self._lock:
             self._check_open()
@@ -407,7 +465,9 @@ class MiniLM:
         if isinstance(texts, str):
             return self.encode(texts).embedding
         vectors = [self.encode(text).embedding for text in texts]
-        return np.stack(vectors) if vectors else np.empty((0, self.embedding_size), dtype=np.float32)
+        return (
+            np.stack(vectors) if vectors else np.empty((0, self.embedding_size), dtype=np.float32)
+        )
 
     def classify(self, text: str) -> Classification:
         """Return the most probable head output for ``text``, with probabilities.
@@ -428,8 +488,12 @@ class MiniLM:
             raise RuntimeError("MiniLM engine returned non-finite logits")
         weights = np.exp(logits.astype(np.float64) - logits.max())
         index = int(np.argmax(logits))
-        return Classification(index, self.labels[index] if self.labels else None,
-                              tuple((weights / weights.sum()).tolist()), tuple(logits.tolist()))
+        return Classification(
+            index,
+            self.labels[index] if self.labels else None,
+            tuple((weights / weights.sum()).tolist()),
+            tuple(logits.tolist()),
+        )
 
     def close(self) -> None:
         """Release the model and its worker threads; safe to call repeatedly."""

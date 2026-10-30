@@ -1,11 +1,11 @@
 """Native wheel architecture and cross-build selection must agree with the binaries."""
+
 import importlib.util
-from pathlib import Path
 import struct
 import sys
+from pathlib import Path
 
 import pytest
-
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -53,8 +53,20 @@ def test_arm64_cross_build_selects_vad_and_the_target_output(tmp_path, monkeypat
     output = tmp_path / "out"
     target = "aarch64-unknown-linux-gnu.2.28"
     expected = output / "aarch64-unknown-linux-gnu/release/libakiki_vad_engine.so"
-    monkeypatch.setattr(sys, "argv", ["build_native.py", "--inference-dir", str(tmp_path),
-                                     "--target-dir", str(output), "--target", target, "--zig"])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "build_native.py",
+            "--inference-dir",
+            str(tmp_path),
+            "--target-dir",
+            str(output),
+            "--target",
+            target,
+            "--zig",
+        ],
+    )
     monkeypatch.setattr(builder.shutil, "which", lambda command: "/local/bin/" + command)
     monkeypatch.setenv("RUSTFLAGS", "-C target-cpu=native")
     monkeypatch.setenv("CARGO_BUILD_TARGET", "x86_64-unknown-linux-gnu")
@@ -75,6 +87,7 @@ def test_arm64_cross_build_selects_vad_and_the_target_output(tmp_path, monkeypat
 
 def test_arm64_minilm_error_explains_vad_only_support(tmp_path, monkeypatch):
     import akiki.minilm as minilm
+
     monkeypatch.setattr(minilm.platform, "machine", lambda: "aarch64")
     monkeypatch.setattr(minilm.sys, "platform", "linux")
     with pytest.raises(RuntimeError, match="ARM64 wheels provide VAD only"):

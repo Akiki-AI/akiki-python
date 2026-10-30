@@ -89,9 +89,11 @@ target platforms before adding those wheels to `dist/`.
 
 Validate the Markdown and metadata with `twine check` for every new artifact.
 Test a clean install with both portable and platform wheels available and
-confirm that `VAD().engine` reports `rust`, loading the installed library.
-Confirm that `VAD().model_precision` is `int8` and `VAD().fft_precision` is
-`fp32`, and that `akiki.minilm._load_library()` loads the installed MiniLM
+confirm that `VAD().engine is Engine.RUST`, loading the installed library
+(`Engine` is exported from `akiki`).
+Confirm that `VAD().model_precision is ModelPrecision.INT8` and
+`VAD().fft_precision is FFTPrecision.FP32` (both enums are exported from `akiki`),
+and that `akiki.minilm._load_library()` loads the installed MiniLM
 library. When no precision is specified, optional ONNX and PyTorch engines use
 FP32; an explicit non-FP32 request must require Rust.
 

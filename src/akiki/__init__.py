@@ -34,8 +34,20 @@ Attributes
 __version__ : str
     Installed Akiki package version.
 """
+
+from ._precision import FFTPrecision, ModelPrecision
 from .minilm import Classification, Encoding, MiniLM
-from .vad import SpeechFrame, VAD
+from .vad import VAD, Engine, SpeechFrame
 
 __version__ = "0.1.2"
-__all__ = ["Classification", "Encoding", "MiniLM", "SpeechFrame", "VAD", "__version__"]
+__all__ = [
+    "Classification",
+    "Encoding",
+    "Engine",
+    "FFTPrecision",
+    "MiniLM",
+    "ModelPrecision",
+    "SpeechFrame",
+    "VAD",
+    "__version__",
+]

@@ -1,15 +1,31 @@
 """Lazy local inference adapters. Engine selection never builds or downloads."""
+
 from __future__ import annotations
 
 import ctypes
 import hashlib
 import json
 import os
-from pathlib import Path
 import sys
 import weakref
+from enum import Enum
+from pathlib import Path
 
 import numpy as np
+
+from ._precision import ModelPrecision
+
+
+class Engine(Enum):
+    """VAD inference engine, or automatic selection in fallback order."""
+
+    AUTO = "auto"
+    RUST = "rust"
+    ONNX = "onnx"
+    PYTORCH = "pytorch"
+
+    def __str__(self) -> str:
+        return self.value
 
 
 class EngineUnavailable(RuntimeError):
@@ -42,22 +58,26 @@ class OnnxBackend(Backend):
         try:
             import onnxruntime as ort
         except (ImportError, OSError) as error:
-            raise EngineUnavailable("Install the ONNX engine with: pip install 'akiki[onnx]'") from error
+            raise EngineUnavailable(
+                "Install the ONNX engine with: pip install 'akiki[onnx]'"
+            ) from error
         path = path.with_suffix(".onnx")
         verify_file(path, metadata["onnx_sha256"])
         options = ort.SessionOptions()
         options.intra_op_num_threads = options.inter_op_num_threads = 1
         try:
-            self.session = ort.InferenceSession(str(path), sess_options=options,
-                                               providers=["CPUExecutionProvider"])
+            self.session = ort.InferenceSession(
+                str(path), sess_options=options, providers=["CPUExecutionProvider"]
+            )
         except Exception as error:
             raise EngineUnavailable(f"ONNX Runtime could not load the model: {error}") from error
         if {v.name for v in self.session.get_inputs()} != {"audio_with_context", "h"}:
             raise ValueError("Unexpected ONNX inputs")
 
     def infer(self, window, state):
-        return self.session.run(["probability", "h_out"],
-                                {"audio_with_context": window[None], "h": state})
+        return self.session.run(
+            ["probability", "h_out"], {"audio_with_context": window[None], "h": state}
+        )
 
     def close(self):
         super().close()
@@ -69,13 +89,18 @@ class PytorchBackend(Backend):
         try:
             import torch
         except (ImportError, OSError) as error:
-            raise EngineUnavailable("Install the PyTorch engine with: pip install 'akiki[pytorch]'") from error
+            raise EngineUnavailable(
+                "Install the PyTorch engine with: pip install 'akiki[pytorch]'"
+            ) from error
         from ._torch import AkikiModel
 
         path = path.with_suffix(".pt")
         expected = metadata.get("pytorch_sha256")
         # The frozen release manifest already records the portable checkpoint hash.
-        if expected is None and path.resolve() == Path(__file__).resolve().parent / "models/akiki-vad.pt":
+        if (
+            expected is None
+            and path.resolve() == Path(__file__).resolve().parent / "models/akiki-vad.pt"
+        ):
             release = json.loads((path.parent / "release.json").read_text())
             expected = release["files"][path.name]["sha256"]
         if not path.is_file():
@@ -93,8 +118,9 @@ class PytorchBackend(Backend):
 
     def infer(self, window, state):
         with self.torch.inference_mode():
-            probability, hidden = self.model(self.torch.from_numpy(window[None]),
-                                             self.torch.from_numpy(state))
+            probability, hidden = self.model(
+                self.torch.from_numpy(window[None]), self.torch.from_numpy(state)
+            )
         return probability.numpy(), hidden.numpy()
 
     def close(self):
@@ -121,10 +147,15 @@ def library_candidates(library_path=None, stem="akiki_vad_engine", variable="AKI
     source_root = Path(__file__).resolve().parents[2]
     yield source_root / ".cache/native-target/release" / name
     target_dir = os.environ.get("CARGO_TARGET_DIR")
-    roots = [Path.home() / "projects/Akiki/akiki-inference", Path("/projects/Akiki/akiki-inference")]
+    roots = [
+        Path.home() / "projects/Akiki/akiki-inference",
+        Path("/projects/Akiki/akiki-inference"),
+    ]
     if os.environ.get("AKIKI_INFERENCE_DIR"):
         roots.insert(0, Path(os.environ["AKIKI_INFERENCE_DIR"]).expanduser())
-    targets = ([Path(target_dir).expanduser()] if target_dir else []) + [r / "target" for r in roots]
+    targets = ([Path(target_dir).expanduser()] if target_dir else []) + [
+        r / "target" for r in roots
+    ]
     for target in targets:
         if os.environ.get("CARGO_BUILD_TARGET"):
             target = target / os.environ["CARGO_BUILD_TARGET"]
@@ -133,7 +164,14 @@ def library_candidates(library_path=None, stem="akiki_vad_engine", variable="AKI
 
 
 class RustBackend(Backend):
-    def __init__(self, path, metadata, library_path=None, model_precision="int8", cache_dir=None):
+    def __init__(
+        self,
+        path,
+        metadata,
+        library_path=None,
+        model_precision: ModelPrecision = ModelPrecision.INT8,
+        cache_dir=None,
+    ):
         folder = path.with_name(path.stem + "-native")
         if not (folder / "export.json").is_file():
             raise EngineUnavailable(f"Local Rust model directory is missing: {folder}")
@@ -160,7 +198,7 @@ class RustBackend(Backend):
                 failures.append(f"{candidate}: {error}")
                 continue
             model_path = folder
-            if model_precision != "fp32":
+            if model_precision is not ModelPrecision.FP32:
                 from ._quantization import cached_model
 
                 def validate_source():
@@ -170,7 +208,9 @@ class RustBackend(Backend):
                     lib.akiki_vad_free(original)
 
                 try:
-                    model_path = cached_model(folder, receipt, model_precision, cache_dir, validate_source)
+                    model_path = cached_model(
+                        folder, receipt, model_precision, cache_dir, validate_source
+                    )
                 except EngineUnavailable as error:
                     failures.append(f"{candidate}: {error}")
                     continue
@@ -178,9 +218,11 @@ class RustBackend(Backend):
             if not handle:
                 failures.append(f"{candidate}: cannot load this model format")
                 continue
-            actual_shape = (lib.akiki_vad_hop_samples(handle),
-                            lib.akiki_vad_context_samples(handle),
-                            lib.akiki_vad_hidden_size(handle))
+            actual_shape = (
+                lib.akiki_vad_hop_samples(handle),
+                lib.akiki_vad_context_samples(handle),
+                lib.akiki_vad_hidden_size(handle),
+            )
             if actual_shape != expected_shape:
                 lib.akiki_vad_free(handle)
                 failures.append(f"{candidate}: model dimensions differ from metadata")
@@ -191,7 +233,9 @@ class RustBackend(Backend):
             self._finalizer = weakref.finalize(self, lib.akiki_vad_free, handle)
             return
         reason = "; ".join(failures) or "no local shared library found"
-        raise EngineUnavailable(f"No compatible Rust engine: {reason}. Set AKIKI_VAD_LIBRARY to a local library")
+        raise EngineUnavailable(
+            f"No compatible Rust engine: {reason}. Set AKIKI_VAD_LIBRARY to a local library"
+        )
 
     @staticmethod
     def _bind(lib):
@@ -216,7 +260,7 @@ class RustBackend(Backend):
         self.lib.akiki_vad_reset(self.handle)
 
     def infer(self, window, state):
-        chunk = np.ascontiguousarray(window[-self.chunk_samples:], dtype=np.float32)
+        chunk = np.ascontiguousarray(window[-self.chunk_samples :], dtype=np.float32)
         probability = self.lib.akiki_vad_chunk_len(self.handle, chunk.ctypes.data, len(chunk))
         hidden = np.empty_like(state)
         if self.lib.akiki_vad_state_len(self.handle, hidden.ctypes.data, self.hidden):
@@ -228,22 +272,34 @@ class RustBackend(Backend):
         self._finalizer()
 
 
-def load_engine(path, metadata, engine, library_path, model_precision=None, cache_dir=None):
-    errors = {}
-    choices = ("rust", "onnx", "pytorch") if engine == "auto" else (engine,)
-    if model_precision not in {None, "fp32"}:
-        choices = ("rust",)
+def load_engine(
+    path,
+    metadata,
+    engine: Engine,
+    library_path,
+    model_precision: ModelPrecision | None = None,
+    cache_dir=None,
+) -> tuple[Backend, Engine, dict[Engine, str]]:
+    errors: dict[Engine, str] = {}
+    choices = (Engine.RUST, Engine.ONNX, Engine.PYTORCH) if engine is Engine.AUTO else (engine,)
+    if model_precision not in (None, ModelPrecision.FP32):
+        choices = (Engine.RUST,)
     for name in choices:
         try:
-            if name == "rust":
-                backend = RustBackend(path, metadata, library_path, model_precision or "int8", cache_dir)
-            elif name == "onnx":
+            if name is Engine.RUST:
+                backend = RustBackend(
+                    path, metadata, library_path, model_precision or ModelPrecision.INT8, cache_dir
+                )
+            elif name is Engine.ONNX:
                 backend = OnnxBackend(path, metadata)
             else:
                 backend = PytorchBackend(path, metadata)
             return backend, name, errors
         except EngineUnavailable as error:
             errors[name] = str(error)
-    reason = (f"model_precision={model_precision!r} requires a compatible Rust engine. "
-              if model_precision not in {None, "fp32"} else "No usable local VAD engine. ")
+    reason = (
+        f"model_precision={model_precision.value!r} requires a compatible Rust engine. "
+        if model_precision not in (None, ModelPrecision.FP32)
+        else "No usable local VAD engine. "
+    )
     raise RuntimeError(reason + "; ".join(f"{k}: {v}" for k, v in errors.items()))

@@ -123,8 +123,9 @@ jobs:
           assert importlib.util.find_spec("onnxruntime") is None
           assert importlib.util.find_spec("torch") is None
           with akiki.VAD() as vad:
-              assert vad.engine == "rust"
-              assert vad.model_precision == "int8" and vad.fft_precision == "fp32"
+              assert vad.engine is akiki.Engine.RUST
+              assert vad.model_precision is akiki.ModelPrecision.INT8
+              assert vad.fft_precision is akiki.FFTPrecision.FP32
               assert Path(vad._backend.lib._name).parent == Path(akiki.__file__).parent / "native"
               assert len(vad.push(np.zeros(256 * 3 + 17, np.float32))) == 3
           assert _load_library()[1].parent == Path(akiki.__file__).parent / "native"
@@ -140,11 +141,11 @@ jobs:
           "$RUNNER_TEMP/akiki-onnx/bin/python" -I - <<'PY'
           import importlib.util
           import numpy as np
-          from akiki import VAD
+          from akiki import Engine, ModelPrecision, VAD
 
           assert importlib.util.find_spec("torch") is None
           with VAD() as vad:
-              assert vad.engine == "onnx" and vad.model_precision == "fp32"
+              assert vad.engine is Engine.ONNX and vad.model_precision is ModelPrecision.FP32
               assert len(vad.push(np.zeros(256 * 3 + 17, np.float32))) == 3
           print("Portable wheel: ONNX fallback, no PyTorch dependency")
           PY
@@ -243,7 +244,7 @@ jobs:
           native = Path(akiki.__file__).parent / "native"
           assert {p.name for p in native.iterdir()} == {"libakiki_vad_engine.so"}
           with akiki.VAD() as vad:
-              assert vad.engine == "rust" and vad.model_precision == "int8"
+              assert vad.engine is akiki.Engine.RUST and vad.model_precision is akiki.ModelPrecision.INT8
               assert Path(vad._backend.lib._name).parent == native
               assert len(vad.push(np.zeros(256 * 3 + 17, np.float32))) == 3
           try:
