@@ -64,7 +64,7 @@ def test_default_is_selected_release_checkpoint():
 
     model_dir = Path(akiki.__file__).parent / "models"
     metadata = json.loads((model_dir / "akiki-vad.json").read_text())
-    assert akiki.__version__ == "0.1.2"
+    assert akiki.__version__ == "0.1.3"
     assert VAD().model_id == "teacher-only623-v2-s1730"
     assert metadata["origin"]["seed"] == 1730
     assert metadata["release_selection"]["checkpoint_window"] == 31

@@ -134,8 +134,8 @@ class MiniLM:
     encoder: an input affine on the word embeddings, a linear head, or both.
     Every model returns an L2-normalized embedding; models with a head also
     return logits, which ``classify`` turns into probabilities. Model weights
-    are not bundled with the package and are never downloaded; pass the path to
-    a local copy.
+    are not bundled with the package. Pass the path to a local copy, or
+    explicitly fetch a Hugging Face model with ``MiniLM.from_pretrained``.
 
     Inference runs on the native Rust engine, which is included in Linux
     x86_64 wheels. There is no ONNX or PyTorch fallback. INT8 projections are
@@ -186,6 +186,51 @@ class MiniLM:
         ...     model.classify("Current user message: Restart my web server.").label
         'task'
     """
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        repo_id: str,
+        *,
+        revision: str | None = None,
+        cache_dir: str | Path | None = None,
+        local_dir: str | Path | None = None,
+        local_files_only: bool = False,
+        token: str | bool | None = None,
+        **model_options,
+    ) -> MiniLM:
+        """Fetch a Hugging Face model, then load it into the local Rust engine.
+
+        Requires the optional ``akiki[huggingface]`` extra. ``repo_id`` must
+        contain a supported plain MiniLM checkpoint or Akiki Ariadne variant;
+        this method does not make arbitrary Hub architectures compatible.
+
+        ``revision``, ``cache_dir``, ``local_dir``, ``local_files_only``, and
+        ``token`` follow ``akiki.download_model``. All other options, such as
+        ``model_precision``, ``threads``, ``adapter_path``, and ``chunk_tokens``,
+        are passed to the local constructor. ``HF_HUB_OFFLINE`` is respected.
+
+        Downloads happen only when this method is explicitly called. To load
+        from a local path without Hub access, use ``MiniLM(path)`` instead.
+
+        Examples
+        --------
+        >>> with MiniLM.from_pretrained(  # doctest: +SKIP
+        ...     "sentence-transformers/all-MiniLM-L6-v2"
+        ... ) as model:
+        ...     vector = model.embed("A man is eating food.")
+        """
+        from .hub import download_model
+
+        path = download_model(
+            repo_id,
+            revision=revision,
+            cache_dir=cache_dir,
+            local_dir=local_dir,
+            local_files_only=local_files_only,
+            token=token,
+        )
+        return cls(path, **model_options)
 
     def __init__(
         self,

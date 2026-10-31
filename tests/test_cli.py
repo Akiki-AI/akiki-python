@@ -81,6 +81,8 @@ def test_vad_cli_rejects_unsupported_precision(option, value, enum_name, monkeyp
         (["vad", "--version"], f"akiki vad {akiki.__version__}"),
         (["minilm", "--help"], "usage: akiki minilm"),
         (["minilm", "--version"], f"akiki minilm {akiki.__version__}"),
+        (["download", "--help"], "usage: akiki download"),
+        (["download", "--version"], f"akiki download {akiki.__version__}"),
     ],
 )
 def test_help_and_version_do_not_load_an_engine(arguments, expected, monkeypatch, capsys):
@@ -89,6 +91,7 @@ def test_help_and_version_do_not_load_an_engine(arguments, expected, monkeypatch
 
     monkeypatch.setattr(akiki, "VAD", unexpected_engine_load)
     monkeypatch.setattr(akiki, "MiniLM", unexpected_engine_load)
+    monkeypatch.setitem(sys.modules, "huggingface_hub", None)
     monkeypatch.setattr(sys, "argv", ["akiki", *arguments])
     with pytest.raises(SystemExit) as error:
         main()
@@ -99,7 +102,8 @@ def test_help_and_version_do_not_load_an_engine(arguments, expected, monkeypatch
 
 
 @pytest.mark.parametrize(
-    "arguments", [[], ["vad"], ["recording.wav"], ["minilm", "--model", "."], ["minilm", "hello"]]
+    "arguments",
+    [[], ["vad"], ["recording.wav"], ["minilm", "--model", "."], ["minilm", "hello"], ["download"]],
 )
 def test_command_and_audio_are_required(arguments, monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["akiki", *arguments])
@@ -109,6 +113,25 @@ def test_command_and_audio_are_required(arguments, monkeypatch, capsys):
     output = capsys.readouterr()
     assert output.out == ""
     assert "usage: akiki" in output.err
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        ["--repo", "org/model"],
+        ["--revision", "v1"],
+        ["--revision", ""],
+        ["--cache-dir", "/local/cache"],
+        ["--local-dir", "/local/model"],
+        ["--local-files-only"],
+    ],
+)
+def test_minilm_cli_rejects_mixing_local_models_and_hub_options(options, monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["akiki", "minilm", "--model", ".", *options, "hello"])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2
+    assert "error:" in capsys.readouterr().err
 
 
 def test_vad_engine_errors_include_the_command_prefix(monkeypatch, capsys):

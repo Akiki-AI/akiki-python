@@ -71,8 +71,12 @@ preserve its Arm copyright and Apache-2.0 terms when updating the pinned engine.
 The package remains Alpha; MiniLM is still supported only in the x86_64 wheel.
 
 MiniLM weights are never bundled. Users pass a local model path to
-`akiki.MiniLM`. The test suite writes tiny random checkpoints and adapters to
-test the binding without real weights. For the real-model tests, set
+`akiki.MiniLM`, or explicitly fetch a compatible checkpoint with
+`MiniLM.from_pretrained()` or `akiki download` using the optional
+`akiki[huggingface]` extra. Release builds and tests must remain offline;
+Hub tests use a fake download boundary and locally generated checkpoints.
+The test suite writes tiny random checkpoints and adapters to test the binding
+without real weights. For the real-model tests, set
 `AKIKI_MINILM_MODEL` to a local checkpoint or Ariadne variant folder. A Clover
 release's recorded test predictions are checked automatically. Set
 `AKIKI_MINILM_REFERENCES` to PyTorch reference JSONL for that model, in the

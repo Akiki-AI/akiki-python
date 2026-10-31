@@ -70,14 +70,15 @@ def check_metadata(data):
         "Stale public description: rebuild this artifact with the current README",
     )
     require(
-        set(metadata.get_all("Provides-Extra") or []) == {"onnx", "pytorch"},
-        "Missing engine extras",
+        set(metadata.get_all("Provides-Extra") or []) == {"huggingface", "onnx", "pytorch"},
+        "Missing optional feature extras",
     )
     require(
         set(metadata.get_all("Requires-Dist") or [])
         == {
             "numpy>=1.24",
             "soundfile>=0.12",
+            'huggingface-hub>=0.24; extra == "huggingface"',
             'onnxruntime>=1.17; extra == "onnx"',
             'torch>=2.1; extra == "pytorch"',
         },

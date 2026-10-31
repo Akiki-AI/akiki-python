@@ -3,7 +3,7 @@
 Use ``VAD`` to process successive audio buffers and ``SpeechFrame``
 to inspect each frame's timestamps, speech probability, and speech decision.
 The bundled model processes 256 samples (16 ms) per frame. Model files are
-included in the package; inference never downloads a model.
+included in the package; inference runs locally.
 
 Examples
 --------
@@ -27,7 +27,8 @@ for the result fields.
 
 ``MiniLM`` runs local MiniLM text models: sentence embeddings from plain
 checkpoints, and Akiki Ariadne variants such as classifiers. Their weights are
-not bundled; pass the path to a local copy. See ``help(akiki.MiniLM)``.
+not bundled; pass a local path or explicitly fetch them with
+``MiniLM.from_pretrained`` or ``download_model``. See ``help(akiki.MiniLM)``.
 
 Attributes
 ----------
@@ -36,10 +37,11 @@ __version__ : str
 """
 
 from ._precision import FFTPrecision, ModelPrecision
+from .hub import download_model
 from .minilm import Classification, Encoding, MiniLM
 from .vad import VAD, Engine, SpeechFrame
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 __all__ = [
     "Classification",
     "Encoding",
@@ -50,4 +52,5 @@ __all__ = [
     "SpeechFrame",
     "VAD",
     "__version__",
+    "download_model",
 ]

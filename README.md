@@ -211,8 +211,8 @@ loads plain checkpoints, such as `sentence-transformers/all-MiniLM-L6-v2`, and
 Akiki Ariadne variants that add a small adapter to the frozen encoder, such as
 the Akiki MiniLM-L6-v2 Clover intent classifier.
 
-The MiniLM weights are not included in the package, and Akiki never downloads
-them. Pass the path to a local copy when creating the model:
+The MiniLM weights are not included in the package. Pass the path to a local
+copy when creating the model:
 
 ```python
 from akiki import MiniLM
@@ -284,6 +284,60 @@ akiki minilm --help
 
 The command prints JSON: the classification for models with a head, and the
 embedding otherwise. Add `--embedding` to include the embedding as well.
+
+### Hugging Face models
+
+Install the optional Hub integration to explicitly download compatible MiniLM
+checkpoints or Akiki Ariadne variants:
+
+```bash
+pip install 'akiki[huggingface]'
+```
+
+```python
+from akiki import MiniLM, download_model
+
+with MiniLM.from_pretrained("sentence-transformers/all-MiniLM-L6-v2") as model:
+    vector = model.embed("A man is eating food.")
+
+# Fetch a model without loading an inference engine, then use the local path.
+path = download_model("sentence-transformers/all-MiniLM-L6-v2")
+with MiniLM(path) as model:
+    vector = model.embed("Someone is eating a meal.")
+```
+
+Both functions accept `revision` (a branch, tag, or full commit hash),
+`cache_dir`, `local_dir`, `local_files_only`, and `token`. `from_pretrained()`
+also accepts the usual MiniLM constructor options, including `threads`,
+`model_precision`, and `chunk_tokens`. Pin `revision` to a full commit hash
+when you need the same model files across runs.
+
+The downloader selects the supported model files, model card, and license
+notices. It skips alternate weight formats, training data, and repository code.
+The repository must contain the checkpoint or variant layout described above;
+downloading another architecture does not make it compatible with MiniLM.
+The same native engine and platform requirements apply after downloading.
+
+On the command line:
+
+```bash
+# Fetch and run a model.
+akiki minilm --repo sentence-transformers/all-MiniLM-L6-v2 "A man is eating food."
+
+# Fetch only, writing into a chosen folder. The command prints its local path.
+akiki download sentence-transformers/all-MiniLM-L6-v2 --local-dir ./models/minilm
+
+# Reuse a previously cached model without network access.
+akiki minilm --repo sentence-transformers/all-MiniLM-L6-v2 --local-files-only "Hello."
+```
+
+Downloads use the [Hugging Face Hub cache and revision handling](https://huggingface.co/docs/huggingface_hub/guides/download).
+Private or gated repositories use `HF_TOKEN` or your saved Hugging Face login;
+the Python API also accepts `token`. Set `HF_HUB_CACHE` or pass `cache_dir` to
+choose a cache location. `local_files_only=True` or `--local-files-only` requires
+an existing local snapshot; missing required files produce an error.
+`HF_HUB_OFFLINE=1` also forces local-only access and is never overridden.
+Ordinary `MiniLM(path)` loading and inference do not contact Hugging Face.
 
 ## Development
 
