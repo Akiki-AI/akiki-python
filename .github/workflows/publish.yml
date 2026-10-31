@@ -228,17 +228,19 @@ jobs:
 
       - name: Test the installed ARM64 wheel with base dependencies only
         run: |
+          version="$(python verify_dist.py --version)"
           python -m venv "$RUNNER_TEMP/akiki-arm64"
           "$RUNNER_TEMP/akiki-arm64/bin/python" -m pip install dist/akiki-*-manylinux_2_28_aarch64.whl
           cd "$RUNNER_TEMP"
-          "$RUNNER_TEMP/akiki-arm64/bin/python" -I - <<'PY'
+          AKIKI_EXPECTED_VERSION="$version" "$RUNNER_TEMP/akiki-arm64/bin/python" -I - <<'PY'
           import importlib.util
+          import os
           from pathlib import Path
           import akiki
           import numpy as np
           from akiki.minilm import _load_library
 
-          assert akiki.__version__ == "0.1.2"
+          assert akiki.__version__ == os.environ["AKIKI_EXPECTED_VERSION"]
           assert importlib.util.find_spec("onnxruntime") is None
           assert importlib.util.find_spec("torch") is None
           native = Path(akiki.__file__).parent / "native"
