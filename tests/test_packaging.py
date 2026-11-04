@@ -36,23 +36,27 @@ def test_wheel_platform_follows_elf_instead_of_build_host(tmp_path, monkeypatch,
     assert wheel.get_tag() == ("py3", "none", tag)
 
 
-def test_mixed_architectures_and_arm64_minilm_are_rejected(tmp_path):
+def test_mixed_architectures_are_rejected_and_arm64_minilm_is_allowed(tmp_path):
     setup = load_script("akiki_setup", "setup.py")
     vad = library(tmp_path / "libakiki_vad_engine.so", 183)
     minilm = library(tmp_path / "libakiki_minilm_engine.so", 62)
     with pytest.raises(ValueError, match="same architecture"):
         setup.linux_platform([vad, minilm])
     library(minilm, 183)
-    with pytest.raises(ValueError, match="VAD only"):
-        setup.linux_platform([vad, minilm])
+    assert setup.linux_platform([vad, minilm]) == "linux_aarch64"
 
 
-def test_arm64_cross_build_selects_vad_and_the_target_output(tmp_path, monkeypatch, capsys):
+def test_arm64_cross_build_selects_both_engines_and_the_target_output(
+    tmp_path, monkeypatch, capsys
+):
     builder = load_script("akiki_build_native", "tools/build_native.py")
     (tmp_path / "Cargo.toml").write_text("[workspace]\n")
     output = tmp_path / "out"
     target = "aarch64-unknown-linux-gnu.2.28"
-    expected = output / "aarch64-unknown-linux-gnu/release/libakiki_vad_engine.so"
+    expected = [
+        output / "aarch64-unknown-linux-gnu/release" / f"libakiki_{engine}_engine.so"
+        for engine in ("vad", "minilm")
+    ]
     monkeypatch.setattr(
         sys,
         "argv",
@@ -75,20 +79,21 @@ def test_arm64_cross_build_selects_vad_and_the_target_output(tmp_path, monkeypat
         assert command[1] == "zigbuild" and "--offline" in command and "--locked" in command
         assert command[command.index("--target") + 1] == target
         assert command[command.index("--package") + 1] == "akiki-vad-engine"
-        assert "akiki-minilm-engine" not in command
+        assert "akiki-minilm-engine" in command
         assert env["RUSTFLAGS"] == "" and "CARGO_BUILD_TARGET" not in env
-        expected.parent.mkdir(parents=True)
-        expected.touch()
+        expected[0].parent.mkdir(parents=True)
+        for path in expected:
+            path.touch()
 
     monkeypatch.setattr(builder.subprocess, "run", build)
     builder.main()
-    assert capsys.readouterr().out.strip() == str(expected)
+    assert capsys.readouterr().out.splitlines() == [str(path) for path in expected]
 
 
-def test_arm64_minilm_error_explains_vad_only_support(tmp_path, monkeypatch):
+def test_arm64_minilm_error_explains_experimental_support(tmp_path, monkeypatch):
     import akiki.minilm as minilm
 
     monkeypatch.setattr(minilm.platform, "machine", lambda: "aarch64")
     monkeypatch.setattr(minilm.sys, "platform", "linux")
-    with pytest.raises(RuntimeError, match="ARM64 wheels provide VAD only"):
+    with pytest.raises(RuntimeError, match="ARM64 MiniLM support is experimental"):
         minilm._load_library(tmp_path / "missing.so")

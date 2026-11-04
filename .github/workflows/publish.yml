@@ -160,7 +160,7 @@ jobs:
           retention-days: 14
 
   build-arm64:
-    name: Build and verify Linux ARM64 VAD wheel
+    name: Build and verify Linux ARM64 VAD and experimental MiniLM wheel
     runs-on: ubuntu-24.04-arm
     container:
       image: quay.io/pypa/manylinux_2_28_aarch64
@@ -200,22 +200,23 @@ jobs:
           python -m pip install build "setuptools>=77.0.3" wheel auditwheel patchelf twine pytest numpy soundfile
           cargo fetch --locked --manifest-path .cache/akiki-inference/Cargo.toml
 
-      - name: Build VAD only, offline
+      - name: Build VAD and experimental ARM64 MiniLM offline
         run: python tools/build_native.py --inference-dir .cache/akiki-inference
 
       - name: Build and repair the ARM64 wheel
         run: |
           python -m build --no-isolation --sdist
-          native="$PWD/.cache/native-target/release/libakiki_vad_engine.so"
-          AKIKI_NATIVE_LIBRARY="$native" \
+          native="$PWD/.cache/native-target/release"
+          AKIKI_NATIVE_LIBRARY="$native/libakiki_vad_engine.so:$native/libakiki_minilm_engine.so" \
             python -m build --no-isolation --wheel --outdir .cache/raw-wheels
           auditwheel repair --plat manylinux_2_28_aarch64 --wheel-dir dist .cache/raw-wheels/*.whl
           python verify_dist.py --all-wheels --require-native --require-arm64
           python -m twine check --strict dist/*
 
-      - name: Test Rust VAD and Python precision/streaming APIs
+      - name: Test Rust engines and Python precision/streaming APIs
         env:
           AKIKI_VAD_TEST_RUST: "1"
+          AKIKI_MINILM_TEST_RUST: "1"
           AKIKI_KERNELS_REQUIRE_SIMD: "1"
         run: |
           manifest=.cache/akiki-inference/Cargo.toml
@@ -224,6 +225,7 @@ jobs:
           cargo test --offline --locked --manifest-path "$manifest" -p akiki-vad-engine --lib config_tests
           cargo test --offline --locked --manifest-path "$manifest" -p akiki-vad-engine --lib matrix_tests
           cargo test --offline --locked --manifest-path "$manifest" -p akiki-vad-engine --test safetensors
+          cargo test --offline --locked --manifest-path "$manifest" -p akiki-minilm-engine
           python -m pytest -q
 
       - name: Test the installed ARM64 wheel with base dependencies only
@@ -244,18 +246,15 @@ jobs:
           assert importlib.util.find_spec("onnxruntime") is None
           assert importlib.util.find_spec("torch") is None
           native = Path(akiki.__file__).parent / "native"
-          assert {p.name for p in native.iterdir()} == {"libakiki_vad_engine.so"}
+          assert {p.name for p in native.iterdir()} == {
+              "libakiki_vad_engine.so", "libakiki_minilm_engine.so"
+          }
           with akiki.VAD() as vad:
               assert vad.engine is akiki.Engine.RUST and vad.model_precision is akiki.ModelPrecision.INT8
               assert Path(vad._backend.lib._name).parent == native
               assert len(vad.push(np.zeros(256 * 3 + 17, np.float32))) == 3
-          try:
-              _load_library()
-          except RuntimeError as error:
-              assert "VAD only" in str(error)
-          else:
-              raise AssertionError("MiniLM must not be bundled in the ARM64 wheel")
-          print("ARM64 wheel: bundled Rust VAD, INT8 default, base dependencies only")
+          assert _load_library()[1].parent == native
+          print("ARM64 wheel: Rust VAD and experimental MiniLM, base dependencies only")
           PY
 
       - name: Save verified ARM64 wheel

@@ -86,7 +86,9 @@ def _load_library(library_path=None):
         return lib, candidate.resolve()
     reason = "; ".join(failures) or "no local shared library found"
     if sys.platform == "linux" and platform.machine().lower() in {"aarch64", "arm64"}:
-        reason += "; experimental ARM64 wheels provide VAD only; MiniLM is unsupported on ARM64"
+        reason += (
+            "; ARM64 MiniLM support is experimental; use a native ARM64 wheel or local library"
+        )
     raise RuntimeError(
         f"No compatible MiniLM engine: {reason}. "
         "Use a native akiki wheel or set AKIKI_MINILM_LIBRARY to a local library"
@@ -138,8 +140,8 @@ class MiniLM:
     explicitly fetch a Hugging Face model with ``MiniLM.from_pretrained``.
 
     Inference runs on the native Rust engine, which is included in Linux
-    x86_64 wheels. There is no ONNX or PyTorch fallback. INT8 projections are
-    the default; see ``MiniLM.__init__`` for all options.
+    x86_64 and ARM64 wheels. ARM64 MiniLM support is experimental. There is no
+    ONNX or PyTorch fallback. INT8 projections are the default; see ``MiniLM.__init__`` for all options.
 
     Use the model as a context manager or call ``close()`` when finished. One
     instance can be shared between threads; its calls run one at a time.

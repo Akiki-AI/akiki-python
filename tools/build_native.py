@@ -2,7 +2,6 @@
 
 import argparse
 import os
-import platform
 import shutil
 import subprocess
 import sys
@@ -13,8 +12,7 @@ PACKAGES = ("akiki-vad-engine", "akiki-minilm-engine")
 
 
 def packages_for_target(target=None):
-    architecture = target.split("-", 1)[0] if target else platform.machine().lower()
-    return PACKAGES[:1] if architecture in {"aarch64", "arm64"} else PACKAGES
+    return PACKAGES
 
 
 def main():
@@ -32,7 +30,7 @@ def main():
         default=Path(__file__).resolve().parents[1] / ".cache/native-target",
     )
     parser.add_argument(
-        "--target", help="Optional Rust target triple; ARM64 builds include VAD only"
+        "--target", help="Optional Rust target triple; ARM64 MiniLM support is experimental"
     )
     parser.add_argument(
         "--zig", action="store_true", help="Use cargo-zigbuild for a portable Linux cross-build"

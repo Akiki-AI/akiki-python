@@ -41,7 +41,7 @@ from .hub import download_model
 from .minilm import Classification, Encoding, MiniLM
 from .vad import VAD, Engine, SpeechFrame
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 __all__ = [
     "Classification",
     "Encoding",

@@ -15,9 +15,9 @@ Previously uploaded filenames cannot be replaced. Keep previous artifacts intact
 ## Build the Linux x86_64 release
 
 Use an existing local Rust toolchain, Cargo cache and `akiki-inference` checkout.
-The x86_64 wheel includes VAD and MiniLM. Starting with 0.1.1, the experimental
-ARM64 wheel includes VAD only. The pinned Rust revision supports both VAD
-architectures; MiniLM remains unsupported in the ARM64 package.
+The x86_64 wheel includes VAD and MiniLM. Starting with 0.1.4, the ARM64 wheel
+also includes both engines. ARM64 MiniLM support is experimental. The existing
+pinned Rust revision is used for both architectures.
 
 ```bash
 python3 tools/build_native.py --inference-dir "$AKIKI_INFERENCE_DIR"
@@ -38,25 +38,26 @@ a build. The portable wheel and source archive include the same model assets.
 The native wheel adds the compiled Rust VAD and MiniLM libraries and is
 preferred by pip and uv on compatible hosts. `AKIKI_NATIVE_LIBRARY` lists the
 libraries to bundle, separated by `:` (`;` on Windows); `verify_dist.py`
-requires both on x86_64 and only VAD on ARM64. Linux wheel architecture is
+requires both on x86_64 and ARM64. Linux wheel architecture is
 derived from the ELF libraries, so cross-built ARM64 libraries cannot be
 accidentally labelled as x86_64.
 
-## Build the experimental Linux ARM64 VAD wheel
+## Build the Linux ARM64 VAD and experimental MiniLM wheel
 
 On a native ARM64 Linux builder with cached tools and Cargo dependencies:
 
 ```bash
 python3 tools/build_native.py --inference-dir "$AKIKI_INFERENCE_DIR"
-native="$PWD/.cache/native-target/release/libakiki_vad_engine.so"
-AKIKI_NATIVE_LIBRARY="$native" uv build --offline --wheel --out-dir .cache/raw-wheels
+native="$PWD/.cache/native-target/release"
+AKIKI_NATIVE_LIBRARY="$native/libakiki_vad_engine.so:$native/libakiki_minilm_engine.so" \
+    uv build --offline --wheel --out-dir .cache/raw-wheels
 uv tool run --offline --with patchelf auditwheel repair \
     --plat manylinux_2_28_aarch64 --wheel-dir dist .cache/raw-wheels/*aarch64.whl
 python3 verify_dist.py --all-wheels --require-native --require-arm64
 ```
 
 Build the source archive alongside the wheels before verification. The native
-build helper selects only VAD on ARM64. For cross-compilation, it also accepts
+build helper selects both VAD and MiniLM on ARM64. For cross-compilation, it also accepts
 `--target aarch64-unknown-linux-gnu.2.28 --zig` with an existing ARM64 Rust std,
 `cargo-zigbuild`, and Zig installation. Cross-build output is under
 `.cache/native-target/aarch64-unknown-linux-gnu/release/`.
@@ -64,7 +65,9 @@ build helper selects only VAD on ARM64. For cross-compilation, it also accepts
 ARM64 INT8 projections use the pinned KleidiAI kernel subset through the shared
 Rust layer/kernel crates. Release builds keep the baseline ARM64 target and
 select Neon DotProd at runtime; older CPUs and other precisions retain portable
-execution. The backend was measured and checked bitwise on a physical Pi 5.
+execution. The VAD backend was measured and checked bitwise on a physical Pi 5. ARM64
+MiniLM is experimental; emulation checks establish correctness, not hardware
+performance.
 CI also runs shared kernel/layer tests and quantized VAD streaming tests on its
 native ARM64 builder. Include THIRD_PARTY_NOTICES.txt in every artifact and
 preserve its Arm copyright and Apache-2.0 terms when updating the pinned engine.
@@ -105,7 +108,7 @@ FP32; an explicit non-FP32 request must require Rust.
 
 The workflow is `.github/workflows/publish.yml`. It builds and verifies the
 portable wheel, source archive, Linux x86_64 native wheel, and experimental
-Linux ARM64 VAD wheel. ARM64 builds in manylinux_2_28 on a native ARM64 runner;
+Linux ARM64 VAD and experimental MiniLM wheel. ARM64 builds in manylinux_2_28 on a native ARM64 runner;
 x86_64 retains the glibc 2.34 floor. Both jobs must pass before publishing. It tests the
 native loader, Python API, and clean installations before saving the artifacts.
 Models come exclusively from `src/akiki/models/`; no model is downloaded.

@@ -25,7 +25,7 @@ parser.add_argument(
     "--require-native", action="store_true", help="Require at least one wheel with the Rust library"
 )
 parser.add_argument(
-    "--require-arm64", action="store_true", help="Require the experimental ARM64 VAD wheel"
+    "--require-arm64", action="store_true", help="Require the experimental ARM64 native wheel"
 )
 args = parser.parse_args()
 if args.wheel and args.all_wheels:
@@ -185,9 +185,7 @@ for wheel in wheels:
                     "Native wheel needs a PyPI-compatible platform tag",
                 )
                 arm64 = platform.endswith("_aarch64")
-                stems = (
-                    ("akiki_vad_engine",) if arm64 else ("akiki_vad_engine", "akiki_minilm_engine")
-                )
+                stems = ("akiki_vad_engine", "akiki_minilm_engine")
                 expected = sorted(
                     "akiki/native/"
                     + (
@@ -201,7 +199,7 @@ for wheel in wheels:
                 )
                 require(
                     sorted(libraries) == expected,
-                    "Native libraries do not match platform support (ARM64: VAD only)",
+                    "Native wheels must include both VAD and MiniLM libraries",
                 )
                 if platform.startswith(("manylinux", "musllinux")):
                     machine = 183 if arm64 else 62
@@ -215,7 +213,7 @@ for wheel in wheels:
             native_count += 1
             if any(platform.endswith("_aarch64") for platform in platform_tag.split(".")):
                 arm64_count += 1
-                info["support"] = "experimental-vad-only"
+                info["support"] = "experimental-arm64-minilm"
             info["native_libraries_sha256"] = {
                 name: hashlib.sha256(archive.read(name)).hexdigest() for name in sorted(libraries)
             }
@@ -230,7 +228,7 @@ require(
     not args.require_native or native_count > 0,
     "No native wheel found; build and repair the Rust wheel before publishing",
 )
-require(not args.require_arm64 or arm64_count > 0, "The experimental ARM64 VAD wheel is missing")
+require(not args.require_arm64 or arm64_count > 0, "The experimental ARM64 native wheel is missing")
 with tarfile.open(source) as archive:
 
     def source_read(name):

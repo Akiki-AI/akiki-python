@@ -88,7 +88,10 @@ and supports all six VAD precision modes with the same INT8 default. INT8
 projections automatically use KleidiAI Neon DotProd kernels on compatible CPUs,
 with a portable fallback on older ARM64 CPUs. Other precisions retain portable
 execution. The optimized path has been tested on a physical Raspberry Pi 5.
-MiniLM remains unsupported in the ARM64 wheel.
+
+Version **0.1.4** also includes the Rust MiniLM engine in the Linux ARM64 wheel.
+**ARM64 MiniLM support is experimental**, including inference with local Ariadne
+adapters. It uses the existing MiniLM API and requires glibc 2.28 or later.
 
 Akiki selects the Rust engine when a compatible native library is available,
 then tries ONNX Runtime and PyTorch if they are installed. Both are optional;
@@ -264,9 +267,9 @@ For task-specific inputs, such as typed decisions, `tokenize()` and
 `encode()` returns both the embedding and any head logits. One model can be
 shared between threads; its calls run one at a time.
 
-MiniLM requires the Rust engine included in Linux x86_64 wheels; it has no ONNX
-or PyTorch alternative. It uses up to four CPU threads by default; set
-`threads` to change this. Projections use INT8 by default. Choose
+MiniLM requires the Rust engine included in Linux x86_64 and ARM64 wheels;
+**ARM64 MiniLM support is experimental**. It has no ONNX or PyTorch alternative.
+It uses up to four CPU threads by default; set `threads` to change this. Projections use INT8 by default. Choose
 `model_precision="fp32"` to use the original weights, or `fp16`, `bf16`,
 `int8-fp32-input`, `int4`, or `int4-g32`. Weights are converted in memory when
 the model loads; the files are unchanged. Attention, normalization, and pooling

@@ -53,8 +53,6 @@ def linux_platform(libraries):
     if len(architectures) != 1:
         raise ValueError("Native libraries must have the same architecture")
     machine = architectures.pop()
-    if machine == 183 and {path.name for path in libraries} != {"libakiki_vad_engine.so"}:
-        raise ValueError("Experimental ARM64 wheels support VAD only")
     return "linux_aarch64" if machine == 183 else "linux_x86_64"
 
 
