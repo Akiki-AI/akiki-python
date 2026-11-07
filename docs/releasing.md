@@ -71,7 +71,8 @@ performance.
 CI also runs shared kernel/layer tests and quantized VAD streaming tests on its
 native ARM64 builder. Include THIRD_PARTY_NOTICES.txt in every artifact and
 preserve its Arm copyright and Apache-2.0 terms when updating the pinned engine.
-The package remains Alpha; MiniLM is still supported only in the x86_64 wheel.
+The package remains Alpha; MiniLM is supported in the Linux x86_64 and ARM64
+wheels, with ARM64 MiniLM support considered experimental.
 
 MiniLM weights are never bundled. Users pass a local model path to
 `akiki.MiniLM`, or explicitly fetch a compatible checkpoint with
