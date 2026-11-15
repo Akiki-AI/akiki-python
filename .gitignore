@@ -60,3 +60,4 @@ htmlcov/
 Thumbs.db
 
 # Keep src/akiki/models/ tracked: these assets are required for offline use.
+.akiki-lab/

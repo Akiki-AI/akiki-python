@@ -24,6 +24,7 @@ dependencies = ["numpy>=1.24", "soundfile>=0.12"]
 huggingface = ["huggingface-hub>=0.24"]
 onnx = ["onnxruntime>=1.17"]
 pytorch = ["torch>=2.1"]
+training = ["akiki-training>=0.1.0"]
 
 [project.urls]
 Homepage = "https://huggingface.co/Akiki-AI"

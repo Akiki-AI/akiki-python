@@ -100,8 +100,8 @@ Test a clean install with both portable and platform wheels available and
 confirm that `VAD().engine is Engine.RUST`, loading the installed library
 (`Engine` is exported from `akiki`).
 Confirm that `VAD().model_precision is ModelPrecision.INT8` and
-`VAD().fft_precision is FFTPrecision.FP32` (both enums are exported from `akiki`),
-and that `akiki.minilm._load_library()` loads the installed MiniLM
+`VAD().fft_precision is FFTPrecision.FP32` (both enums are exported from `akiki.vad`),
+and that `akiki.decision._load_library()` loads the installed MiniLM
 library. When no precision is specified, optional ONNX and PyTorch engines use
 FP32; an explicit non-FP32 request must require Rust.
 
@@ -134,7 +134,7 @@ blank. Only the publishing job has `id-token: write`; no PyPI token is stored.
 The native source is pinned by `AKIKI_INFERENCE_REV` in the workflow. Update
 that commit deliberately when changing the engine. It must be reachable on
 GitHub, preferably on `main`, and its MiniLM C ABI (`src/ffi.rs` in
-`akiki-minilm-engine`) must match `src/akiki/minilm.py`. Both repositories remain
+`akiki-minilm-engine`) must match `src/akiki/decision.py`. Both repositories remain
 private. Source checkout uses a dedicated read-only SSH deploy key:
 
 1. Enable deploy keys in the organization's settings if they are disabled.

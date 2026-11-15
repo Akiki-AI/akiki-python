@@ -11,6 +11,7 @@ import pytest
 import akiki
 from akiki import VAD, Engine, FFTPrecision, ModelPrecision
 from akiki import _quantization as quant
+from akiki.decision import ModelPrecision as MiniLMPrecision
 
 
 @pytest.mark.parametrize("engine", [Engine.AUTO, Engine.RUST])
@@ -154,6 +155,7 @@ def test_precision_never_silently_falls_back_to_fp32(tmp_path):
     "precision",
     [
         *(precision.value for precision in ModelPrecision),
+        *MiniLMPrecision,
         "int3",
         FFTPrecision.FP32,
         Engine.AUTO,

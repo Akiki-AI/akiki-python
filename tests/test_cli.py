@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import os
 import subprocess
@@ -10,6 +11,23 @@ import soundfile as sf
 
 import akiki
 from akiki.__main__ import main
+from akiki.decision import ModelPrecision as MiniLMPrecision
+
+
+@pytest.mark.parametrize(
+    "name", ["datasets", "typed_decisions", "lab", "_lab_worker", "_training_torch"]
+)
+def test_authoring_modules_live_in_the_separate_training_project(name):
+    assert importlib.util.find_spec(f"akiki.{name}") is None
+
+
+@pytest.mark.parametrize("command", ["train", "lab"])
+def test_runtime_cli_excludes_training_commands(command, monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["akiki", command, "--help"])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2
+    assert f"invalid choice: '{command}'" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("engine", [None, *akiki.Engine])
@@ -70,6 +88,30 @@ def test_vad_cli_rejects_unsupported_precision(option, value, enum_name, monkeyp
         main()
     assert error.value.code == 2
     assert f"{option}: invalid {enum_name} value" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("precision", [None, *MiniLMPrecision])
+def test_minilm_cli_converts_precision_to_its_enum(precision, monkeypatch):
+    import akiki.__main__ as cli
+
+    selected = []
+    monkeypatch.setattr(cli, "_run_minilm", lambda args: selected.append(args.model_precision))
+    arguments = ["akiki", "minilm", "--model", ".", "hello"]
+    if precision is not None:
+        arguments += ["--model-precision", precision.value]
+    monkeypatch.setattr(sys, "argv", arguments)
+    main()
+    assert selected == [precision if precision is not None else MiniLMPrecision.INT8]
+
+
+def test_minilm_cli_rejects_unsupported_precision(monkeypatch, capsys):
+    monkeypatch.setattr(
+        sys, "argv", ["akiki", "minilm", "--model", ".", "hello", "--model-precision", "fp8"]
+    )
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2
+    assert "--model-precision: invalid ModelPrecision value" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(

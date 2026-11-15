@@ -117,7 +117,7 @@ jobs:
           import importlib.util
           from pathlib import Path
           import akiki
-          from akiki.minilm import _load_library
+          from akiki.decision import _load_library
           import numpy as np
 
           assert importlib.util.find_spec("onnxruntime") is None
@@ -240,7 +240,7 @@ jobs:
           from pathlib import Path
           import akiki
           import numpy as np
-          from akiki.minilm import _load_library
+          from akiki.decision import _load_library
 
           assert akiki.__version__ == os.environ["AKIKI_EXPECTED_VERSION"]
           assert importlib.util.find_spec("onnxruntime") is None

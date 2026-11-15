@@ -1,10 +1,12 @@
-"""Akiki tools for speech, text, and explicit Hugging Face model downloads."""
+"""Akiki tools for local speech and text inference and explicit Hub downloads."""
 
 import argparse
 import json
 from dataclasses import asdict
 
-from . import Engine, FFTPrecision, ModelPrecision, __version__
+from . import __version__
+from .decision import ModelPrecision as MiniLMPrecision
+from .vad import Engine, FFTPrecision, ModelPrecision
 
 
 def main():
@@ -17,8 +19,6 @@ def main():
     Use ``akiki --help`` to list commands and ``akiki <command> --help`` for
     its options. The root command and every subcommand support ``--version``.
     """
-    from .minilm import MODEL_PRECISIONS as MINILM_PRECISIONS
-
     parser = argparse.ArgumentParser(prog="akiki", description="Akiki command-line tools.")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     commands = parser.add_subparsers(dest="command", required=True, title="commands")
@@ -94,8 +94,9 @@ def main():
     )
     minilm.add_argument(
         "--model-precision",
-        choices=MINILM_PRECISIONS,
-        default="int8",
+        type=MiniLMPrecision,
+        choices=list(MiniLMPrecision),
+        default=MiniLMPrecision.INT8,
         help="Weight and projection precision (default: int8)",
     )
     minilm.add_argument("--library-path", help="Path to a local Rust MiniLM shared library")

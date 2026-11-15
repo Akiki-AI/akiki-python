@@ -91,9 +91,9 @@ def test_arm64_cross_build_selects_both_engines_and_the_target_output(
 
 
 def test_arm64_minilm_error_explains_experimental_support(tmp_path, monkeypatch):
-    import akiki.minilm as minilm
+    from akiki import decision
 
-    monkeypatch.setattr(minilm.platform, "machine", lambda: "aarch64")
-    monkeypatch.setattr(minilm.sys, "platform", "linux")
+    monkeypatch.setattr(decision.platform, "machine", lambda: "aarch64")
+    monkeypatch.setattr(decision.sys, "platform", "linux")
     with pytest.raises(RuntimeError, match="ARM64 MiniLM support is experimental"):
-        minilm._load_library(tmp_path / "missing.so")
+        decision._load_library(tmp_path / "missing.so")

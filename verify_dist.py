@@ -70,7 +70,8 @@ def check_metadata(data):
         "Stale public description: rebuild this artifact with the current README",
     )
     require(
-        set(metadata.get_all("Provides-Extra") or []) == {"huggingface", "onnx", "pytorch"},
+        set(metadata.get_all("Provides-Extra") or [])
+        == {"huggingface", "onnx", "pytorch", "training"},
         "Missing optional feature extras",
     )
     require(
@@ -81,6 +82,7 @@ def check_metadata(data):
             'huggingface-hub>=0.24; extra == "huggingface"',
             'onnxruntime>=1.17; extra == "onnx"',
             'torch>=2.1; extra == "pytorch"',
+            'akiki-training>=0.1.0; extra == "training"',
         },
         "Runtime dependencies must be optional and independently selectable",
     )
@@ -158,6 +160,21 @@ for wheel in wheels:
                 f"Wheel licence differs: {name}",
             )
         info["model"] = check_models(archive.read, archive.namelist())
+        authoring_modules = {
+            f"akiki/{name}.py"
+            for name in (
+                "_training_torch",
+                "datasets",
+                "typed_decisions",
+                "lab",
+                "_lab_worker",
+            )
+        }
+        require(
+            not authoring_modules.intersection(archive.namelist())
+            and not any(name.startswith("akiki/lab_static/") for name in archive.namelist()),
+            "Training implementation and Lab assets belong in akiki-training; rebuild from a clean tree",
+        )
         for path in (root / "src/akiki").glob("*.py"):
             require(
                 archive.read("akiki/" + path.name) == path.read_bytes(),

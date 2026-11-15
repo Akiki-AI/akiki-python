@@ -7,8 +7,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from akiki import MiniLM
-from akiki.minilm import MODEL_PRECISIONS
+from akiki import vad
+from akiki.decision import MiniLM, ModelPrecision
 
 
 def words(n, start=0):
@@ -32,7 +32,6 @@ def test_missing_files_are_named(tmp_path):
 @pytest.mark.parametrize(
     "options",
     [
-        dict(model_precision="fp8"),
         dict(threads=0),
         dict(threads=257),
         dict(threads=1.5),
@@ -42,6 +41,24 @@ def test_missing_files_are_named(tmp_path):
 def test_invalid_options(tmp_path, options):
     with pytest.raises(ValueError):
         MiniLM(fake_model(tmp_path), **options)
+
+
+@pytest.mark.parametrize(
+    "precision",
+    [
+        *(precision.value for precision in ModelPrecision),
+        "fp8",
+        *vad.ModelPrecision,
+        vad.FFTPrecision.FP32,
+        vad.Engine.RUST,
+        None,
+        1,
+        [],
+    ],
+)
+def test_model_precision_requires_the_decision_enum(tmp_path, precision):
+    with pytest.raises(TypeError, match=r"akiki\.decision\.ModelPrecision"):
+        MiniLM(tmp_path, model_precision=precision)
 
 
 def test_missing_library_has_actionable_error(tmp_path, monkeypatch):
@@ -57,13 +74,13 @@ def test_engine_reports_why_a_model_cannot_load(tmp_path, require_minilm_library
 
 @pytest.fixture(scope="module")
 def plain(tiny_minilm, require_minilm_library):
-    with MiniLM(tiny_minilm.plain, model_precision="fp32") as model:
+    with MiniLM(tiny_minilm.plain, model_precision=ModelPrecision.FP32) as model:
         yield model
 
 
 @pytest.fixture(scope="module")
 def variant(tiny_minilm, require_minilm_library):
-    with MiniLM(tiny_minilm.variant, model_precision="fp32") as model:
+    with MiniLM(tiny_minilm.variant, model_precision=ModelPrecision.FP32) as model:
         yield model
 
 
@@ -127,7 +144,7 @@ def test_long_text_is_rejected_unless_chunked(plain, tiny_minilm):
 
 
 def test_chunking_combines_weighted_chunk_embeddings(plain, tiny_minilm, require_minilm_library):
-    with MiniLM(tiny_minilm.plain, model_precision="fp32", chunk_tokens=8) as chunked:
+    with MiniLM(tiny_minilm.plain, model_precision=ModelPrecision.FP32, chunk_tokens=8) as chunked:
         text = words(20, 7)
         tokens = plain.tokenize(text, special_tokens=False)
         pieces = [tokens[i : i + 6] for i in range(0, len(tokens), 6)]
@@ -148,7 +165,7 @@ def test_chunking_combines_weighted_chunk_embeddings(plain, tiny_minilm, require
 
 
 def test_retrieval_variant_chunks_at_its_max_length(plain, tiny_minilm, require_minilm_library):
-    with MiniLM(tiny_minilm.retrieval, model_precision="fp32") as model:
+    with MiniLM(tiny_minilm.retrieval, model_precision=ModelPrecision.FP32) as model:
         assert (model.chunk_tokens, model.head_size) == (8, 0)
         vector = model.embed(words(5))
         assert np.linalg.norm(vector) == pytest.approx(1, abs=1e-6)
@@ -186,16 +203,16 @@ def test_invalid_variant_settings(tiny_minilm, tmp_path, require_minilm_library)
 
 
 def test_every_precision_loads(variant, tiny_minilm):
-    for precision in MODEL_PRECISIONS:
+    for precision in ModelPrecision:
         with MiniLM(tiny_minilm.variant, model_precision=precision, threads=2) as model:
-            assert (model.model_precision, model.threads) == (precision, 2)
-            if precision != "fp32":
+            assert model.model_precision is precision and model.threads == 2
+            if precision is not ModelPrecision.FP32:
                 assert model.model_bytes < variant.model_bytes
             vector = model.embed(words(11))
             assert np.linalg.norm(vector) == pytest.approx(1, abs=1e-5)
             assert float(vector @ variant.embed(words(11))) > 0.98
     with MiniLM(tiny_minilm.variant) as model:
-        assert model.model_precision == "int8"
+        assert model.model_precision is ModelPrecision.INT8
 
 
 def test_shared_instance_is_thread_safe(variant):
@@ -238,7 +255,7 @@ def test_clover_matches_recorded_reference_probabilities(minilm_model):
         minilm_model / "data/test.jsonl",
         minilm_model / "results/test-predictions.jsonl",
     )
-    with MiniLM(minilm_model, model_precision="fp32") as model:
+    with MiniLM(minilm_model, model_precision=ModelPrecision.FP32) as model:
         if model.labels != CLOVER_LABELS or not (rows.is_file() and references.is_file()):
             pytest.skip("AKIKI_MINILM_MODEL is not a Clover release with recorded test predictions")
         expected = {r["id"]: r for r in map(json.loads, references.read_text().splitlines())}
@@ -258,7 +275,7 @@ def test_matches_pytorch_references(minilm_model):
     if not path:
         pytest.skip("Set AKIKI_MINILM_REFERENCES to local PyTorch reference JSONL for this model")
     adapter = os.environ.get("AKIKI_MINILM_ADAPTER")
-    with MiniLM(minilm_model, adapter, model_precision="fp32") as model:
+    with MiniLM(minilm_model, adapter, model_precision=ModelPrecision.FP32) as model:
         rows = [json.loads(line) for line in Path(path).read_text().splitlines()]
         for row in rows:
             if "text" in row:

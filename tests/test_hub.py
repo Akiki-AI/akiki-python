@@ -14,6 +14,7 @@ import pytest
 import akiki
 from akiki import MiniLM, download_model
 from akiki.__main__ import main
+from akiki.decision import ModelPrecision
 
 
 @pytest.fixture
@@ -162,20 +163,20 @@ def test_from_pretrained_matches_local_inference(
     source = getattr(tiny_minilm, layout)
     fake_hub.source = source
     with (
-        MiniLM(source, model_precision="fp32", threads=1) as local,
+        MiniLM(source, model_precision=ModelPrecision.FP32, threads=1) as local,
         CustomMiniLM.from_pretrained(
             "org/model",
             revision="v1",
             cache_dir=tmp_path / "hub-cache",
             local_files_only=True,
             token=False,
-            model_precision="fp32",
+            model_precision=ModelPrecision.FP32,
             threads=1,
             library_path=require_minilm_library,
         ) as downloaded,
     ):
         assert isinstance(downloaded, CustomMiniLM)
-        assert downloaded.model_precision == "fp32" and downloaded.threads == 1
+        assert downloaded.model_precision is ModelPrecision.FP32 and downloaded.threads == 1
         assert downloaded.labels == local.labels
         assert downloaded.chunk_tokens == local.chunk_tokens
         np.testing.assert_array_equal(downloaded.embed("w4 w5 w6"), local.embed("w4 w5 w6"))
@@ -246,7 +247,7 @@ def test_minilm_cli_runs_hub_models(
     output = capsys.readouterr()
     result = json.loads(output.out)
     assert output.err == ""
-    with MiniLM(getattr(tiny_minilm, layout), model_precision="fp32") as model:
+    with MiniLM(getattr(tiny_minilm, layout), model_precision=ModelPrecision.FP32) as model:
         if model.head_size:
             assert result["label"] == model.classify("w4 w5 w6").label
         else:

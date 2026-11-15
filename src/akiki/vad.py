@@ -1,4 +1,21 @@
-"""Offline streaming VAD with Rust, ONNX and PyTorch inference engines."""
+"""Streaming speech detection and its configuration and result types.
+
+Use ``VAD`` with successive mono, 16 kHz audio buffers. Each complete frame
+returns a ``SpeechFrame`` with timestamps, a probability, and a speech decision.
+The bundled model processes 256 samples (16 ms) per frame.
+
+``Engine`` selects Rust, ONNX, PyTorch, or automatic fallback. ``ModelPrecision``
+selects the VAD model's numeric format; ``FFTPrecision`` configures its FFT.
+These enums belong to VAD; MiniLM uses ``akiki.decision.ModelPrecision``.
+
+Examples
+--------
+>>> from akiki import vad
+>>> with vad.VAD(model_precision=vad.ModelPrecision.FP32) as detector:
+...     frames = detector.push([0.0] * 256)
+>>> len(frames)
+1
+"""
 
 import json
 from dataclasses import dataclass
@@ -8,6 +25,8 @@ import numpy as np
 
 from ._engines import Engine
 from ._precision import FFTPrecision, ModelPrecision
+
+__all__ = ["Engine", "FFTPrecision", "ModelPrecision", "SpeechFrame", "VAD"]
 
 SAMPLE_RATE = 16000
 

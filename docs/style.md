@@ -15,7 +15,7 @@ Use separate enum classes when parameters accept different sets of choices.
 For example, VAD model precision and FFT precision have different domains:
 
 ```python
-from akiki import FFTPrecision, ModelPrecision, VAD
+from akiki.vad import VAD, FFTPrecision, ModelPrecision
 
 with VAD(
     model_precision=ModelPrecision.INT8,
@@ -23,6 +23,10 @@ with VAD(
 ) as detector:
     frames = detector.push(samples)
 ```
+
+VAD and MiniLM also have distinct model precision domains. Use
+`akiki.vad.ModelPrecision` with `VAD` and `akiki.decision.ModelPrecision` with
+`MiniLM`; do not share enum types just because some serialized values match.
 
 Validate enum types at public API boundaries. Reject strings and members of a
 different enum with `TypeError`; reject unsupported combinations of otherwise

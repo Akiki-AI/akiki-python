@@ -22,7 +22,7 @@ def require_rust():
 
 @pytest.fixture(scope="session")
 def require_minilm_library():
-    from akiki.minilm import _load_library
+    from akiki.decision import _load_library
 
     try:
         return _load_library()[1]

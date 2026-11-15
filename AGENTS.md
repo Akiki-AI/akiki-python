@@ -9,6 +9,25 @@ Follow [the Python style guide](docs/style.md) for code changes.
   Run tests appropriate to the behavior changed.
 - Preserve lazy imports for optional inference runtimes.
 
+## Ariadne terminology
+
+- Describe Ariadne as adapting the query's representation so a frozen model can
+  use its existing latent capabilities. The Ariadne layer does not contain
+  learned skills; do not describe it as teaching the model new skills.
+- Distinguish the Ariadne input affine from the separate classification head
+  that reads out label probabilities.
+- Ariadne applies to general-purpose LLMs and typically requires training fewer
+  than 1% of the base model's parameter count. Distinguish the general technique
+  from the checkpoint families supported by a particular implementation.
+
+## Local hosting
+
+- Keep websites, tutorials, demos, and generated artifacts local or on the
+  user's own infrastructure. Do not host or deploy them on third-party
+  services, including ChatGPT Sites.
+- Deliver local HTML pages or applications. Keep their required assets local;
+  do not add external hosting, publication, or deployment configuration.
+
 ## Local model assets
 
 - Never download models or model artifacts, including weights, tokenizers, and
