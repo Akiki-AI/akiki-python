@@ -4,6 +4,14 @@ Use explicit domain types and consistent formatting throughout the package,
 tests, and developer tools. Ruff owns Python formatting and import ordering;
 the settings in `pyproject.toml` are the source of truth.
 
+## Documentation language
+
+Use ASD-STE100 Simplified Technical English for all documentation.
+This includes docstrings, notebooks, user guides, and release instructions.
+Use short sentences and active voice. Give one instruction per sentence.
+Use consistent technical terms. Keep exact API names and code identifiers.
+Apply this standard when you revise existing text.
+
 ## Enums and domain types
 
 Use a plain `enum.Enum` whenever a value represents a finite set of meaningful

@@ -9,6 +9,14 @@ Follow [the Python style guide](docs/style.md) for code changes.
   Run tests appropriate to the behavior changed.
 - Preserve lazy imports for optional inference runtimes.
 
+## Documentation language
+
+- Use ASD-STE100 Simplified Technical English for all documentation.
+- Apply this rule to docstrings, notebooks, guides, and release instructions.
+- Use short sentences, active voice, and one instruction per sentence.
+- Use consistent technical terms. Preserve exact API names and code identifiers.
+- Apply the same standard when you revise existing documentation.
+
 ## Ariadne terminology
 
 - Describe Ariadne as adapting the query's representation so a frozen model can
