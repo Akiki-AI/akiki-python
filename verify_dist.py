@@ -47,6 +47,43 @@ def require(condition, message):
         raise ValueError(message)
 
 
+def check_no_local_artifacts(names):
+    local_directories = {
+        ".akiki-lab",
+        ".cache",
+        ".venv",
+        "__pycache__",
+        "experiments",
+        "local-experiments",
+        "reports",
+        "toy-test",
+        "toy-test-typed-decisions",
+        "verification",
+    }
+    for name in names:
+        require(
+            not local_directories.intersection(Path(name).parts)
+            and not name.endswith((".ipynb", ".pyc", ".pyo")),
+            f"Local artifact must not be distributed: {name}",
+        )
+
+
+def check_package_files(names, *, allow_native=False):
+    names = {name for name in names if not name.endswith("/")}
+    expected = {
+        "akiki/" + path.relative_to(root / "src/akiki").as_posix()
+        for path in [*(root / "src/akiki").glob("*.py"), *model_dir.rglob("*")]
+        if path.is_file()
+    }
+    if allow_native:
+        expected.update(
+            name
+            for name in names
+            if name.startswith("akiki/native/") and name.endswith((".so", ".dylib", ".dll"))
+        )
+    require(names == expected, "Unexpected/missing package files; rebuild from a clean checkout")
+
+
 def check_metadata(data):
     # Core metadata is UTF-8; the legacy email parser otherwise replaces
     # non-ASCII description text such as the microsecond symbol.
@@ -82,7 +119,7 @@ def check_metadata(data):
             'huggingface-hub>=0.24; extra == "huggingface"',
             'onnxruntime>=1.17; extra == "onnx"',
             'torch>=2.1; extra == "pytorch"',
-            'akiki-training>=0.1.0; extra == "training"',
+            'akiki-training[ariadne]>=0.1.0; extra == "training"',
         },
         "Runtime dependencies must be optional and independently selectable",
     )
@@ -152,6 +189,18 @@ arm64_count = 0
 checks["wheels"] = {}
 for wheel in wheels:
     with zipfile.ZipFile(wheel) as archive:
+        check_no_local_artifacts(archive.namelist())
+        require(
+            all(
+                name.startswith(("akiki/", f"akiki-{version}.dist-info/"))
+                for name in archive.namelist()
+            ),
+            "Unexpected top-level wheel files; rebuild from a clean checkout",
+        )
+        check_package_files(
+            [name for name in archive.namelist() if name.startswith("akiki/")],
+            allow_native=True,
+        )
         info = check_metadata(archive.read(f"akiki-{version}.dist-info/METADATA"))
         for name in ["LICENSE", "THIRD_PARTY_NOTICES.txt"]:
             require(
@@ -160,21 +209,6 @@ for wheel in wheels:
                 f"Wheel licence differs: {name}",
             )
         info["model"] = check_models(archive.read, archive.namelist())
-        authoring_modules = {
-            f"akiki/{name}.py"
-            for name in (
-                "_training_torch",
-                "datasets",
-                "typed_decisions",
-                "lab",
-                "_lab_worker",
-            )
-        }
-        require(
-            not authoring_modules.intersection(archive.namelist())
-            and not any(name.startswith("akiki/lab_static/") for name in archive.namelist()),
-            "Training implementation and Lab assets belong in akiki-training; rebuild from a clean tree",
-        )
         for path in (root / "src/akiki").glob("*.py"):
             require(
                 archive.read("akiki/" + path.name) == path.read_bytes(),
@@ -247,6 +281,7 @@ require(
 )
 require(not args.require_arm64 or arm64_count > 0, "The experimental ARM64 native wheel is missing")
 with tarfile.open(source) as archive:
+    check_no_local_artifacts(archive.getnames())
 
     def source_read(name):
         return archive.extractfile(f"akiki-{version}/src/" + name).read()
@@ -263,6 +298,13 @@ with tarfile.open(source) as archive:
             f"Source licence differs: {name}",
         )
     source_prefix = f"akiki-{version}/src/"
+    check_package_files(
+        [
+            member.name[len(source_prefix) :]
+            for member in archive.getmembers()
+            if member.name.startswith(source_prefix + "akiki/") and member.isfile()
+        ]
+    )
     checks["sdist"]["model"] = check_models(
         source_read,
         [

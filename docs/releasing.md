@@ -3,6 +3,14 @@
 The public PyPI description comes from `README.md`. Keep it focused on package
 features and usage. Build and publishing instructions belong here.
 
+## Branches and release preparation
+
+Use `rc-0.2.0` for integration and release checks. Keep `main` unchanged until
+the code has passed human review.
+When the RC is ready, create `release-0.2.0` from the tested RC commit.
+Set the release version on that branch before you build the release artifacts.
+Creating or pushing these branches does not publish a package to PyPI.
+
 Update the version in `pyproject.toml`, `src/akiki/__init__.py`, the version
 assertion in `tests/test_vad.py`, and the package version in
 `src/akiki/models/release.json` and `MODEL_CARD.md`. Preserve the model identity
@@ -11,6 +19,37 @@ and weight checksums unless deliberately releasing a different model.
 PyPI takes a release's description from its first upload. A description change
 requires a new version; an additional wheel does not update an existing page.
 Previously uploaded filenames cannot be replaced. Keep previous artifacts intact.
+
+## Repository and package contents
+
+Commit package source, public documentation, synthetic tests, and release tools.
+Keep datasets, notebooks, teacher responses, trained specialist adapters, and
+experiment outputs local. Use `local-experiments/` or a separate workspace for
+new experiments. Existing toy-model and verification directories are ignored.
+Preserve the released VAD assets in `src/akiki/models/`.
+
+Stage files by name. Before a commit, inspect the staged files:
+
+```bash
+git diff --cached --stat
+git diff --cached --check
+git status --short
+```
+
+Build from a clean checkout of the tested commit. The wheel contains the
+`akiki` package, released VAD assets, and optional native libraries.
+The source archive also contains the public build instructions, synthetic
+tests, and release verification tools. Packaging rules exclude local experiment
+directories and notebooks. `verify_dist.py` rejects local artifacts and
+unexpected package files in the built archives.
+
+The training implementation, dataset tools, and Lab belong to separate
+companion packages. Akiki's `training` extra selects
+`akiki-training[ariadne]`. Before publication, make the tested companion version
+available from the intended package index. Test the extra in a clean environment
+without an editable companion checkout. Check that base inference still works
+without training dependencies. Install `akiki-training-lab` separately for
+`akiki-lab --open`.
 
 ## Build the Linux x86_64 release
 
@@ -114,8 +153,10 @@ x86_64 retains the glibc 2.34 floor. Both jobs must pass before publishing. It t
 native loader, Python API, and clean installations before saving the artifacts.
 Models come exclusively from `src/akiki/models/`; no model is downloaded.
 
-Pushes to `main` and manual runs from the Actions tab build and test without
-publishing by default. Publishing a GitHub release runs the same checks and then uploads
+Run the workflow manually on the RC or release branch to build and test without
+publishing. Leave the `publish` input disabled. Pushes to `main` also run these
+checks after human review; do not update `main` to start an RC build.
+Publishing a GitHub release runs the same checks and then uploads
 the verified artifacts to PyPI using Trusted Publishing. The release tag must
 be `v` followed by the version in `pyproject.toml`, for example `v0.1.0`. Update
 all the version locations listed above first, and use a version that has not

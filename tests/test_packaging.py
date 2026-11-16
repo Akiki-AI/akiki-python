@@ -1,8 +1,14 @@
 """Native wheel architecture and cross-build selection must agree with the binaries."""
 
 import importlib.util
+import io
+import os
+import shutil
 import struct
+import subprocess
 import sys
+import tarfile
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -97,3 +103,125 @@ def test_arm64_minilm_error_explains_experimental_support(tmp_path, monkeypatch)
     monkeypatch.setattr(decision.sys, "platform", "linux")
     with pytest.raises(RuntimeError, match="ARM64 MiniLM support is experimental"):
         decision._load_library(tmp_path / "missing.so")
+
+
+@pytest.fixture(scope="module")
+def packaged_project(tmp_path_factory):
+    project = tmp_path_factory.mktemp("package-contents")
+    for name in (
+        "LICENSE",
+        "THIRD_PARTY_NOTICES.txt",
+        "README.md",
+        "MANIFEST.in",
+        "pyproject.toml",
+        "setup.py",
+        "verify_dist.py",
+        "tools/build_native.py",
+    ):
+        destination = project / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / name, destination)
+    for name in ("src/akiki", "docs", "tests"):
+        shutil.copytree(
+            ROOT / name,
+            project / name,
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "native"),
+        )
+    for name in (
+        ".akiki-lab",
+        ".cache",
+        "experiments",
+        "local-experiments",
+        "reports",
+        "toy-test",
+        "toy-test-typed-decisions",
+        "verification",
+    ):
+        directory = project / name
+        directory.mkdir()
+        (directory / "private.jsonl").write_text('{"private": true}\n')
+    (project / "playground.ipynb").write_text("local notebook")
+    extra_package = project / "src/experiment_package"
+    extra_package.mkdir()
+    (extra_package / "__init__.py").write_text("# Local experiment\n")
+    environment = os.environ | {
+        "HF_HUB_OFFLINE": "1",
+        "PIP_NO_INDEX": "1",
+        "PYTHONDONTWRITEBYTECODE": "1",
+    }
+    environment.pop("AKIKI_NATIVE_LIBRARY", None)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from setuptools.build_meta import build_sdist, build_wheel; "
+            "build_sdist('dist'); build_wheel('dist')",
+        ],
+        cwd=project,
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    return project
+
+
+def verify_distributions(project, directory):
+    return subprocess.run(
+        [sys.executable, str(project / "verify_dist.py"), "--dist-dir", str(directory)],
+        cwd=project,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_distributions_exclude_local_work_and_pass_release_verification(packaged_project):
+    project = packaged_project
+    directory = project / "dist"
+    with zipfile.ZipFile(next(directory.glob("*.whl"))) as wheel:
+        names = wheel.namelist()
+        assert "akiki/decision.py" in names
+        assert not any("experiment_package" in name or "private.jsonl" in name for name in names)
+    with tarfile.open(next(directory.glob("*.tar.gz"))) as source:
+        names = source.getnames()
+        assert any(name.endswith("/verify_dist.py") for name in names)
+        assert not any("private.jsonl" in name or name.endswith(".ipynb") for name in names)
+    result = verify_distributions(project, directory)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(
+    "kind,name,message",
+    [
+        ("wheel", "local-experiments/private.jsonl", "Local artifact must not be distributed"),
+        ("wheel", "akiki/stale_experiment.py", "Unexpected/missing package files"),
+        ("sdist", "local-experiments/private.jsonl", "Local artifact must not be distributed"),
+        ("sdist", "src/akiki/stale_experiment.py", "Unexpected/missing package files"),
+    ],
+)
+def test_release_verification_rejects_local_or_stale_files(
+    packaged_project, tmp_path, kind, name, message
+):
+    for path in (packaged_project / "dist").iterdir():
+        shutil.copy2(path, tmp_path / path.name)
+    if kind == "wheel":
+        with zipfile.ZipFile(next(tmp_path.glob("*.whl")), "a") as archive:
+            archive.writestr(name, "local experiment")
+    else:
+        source = next(tmp_path.glob("*.tar.gz"))
+        with tarfile.open(source) as archive:
+            members = [
+                (member, archive.extractfile(member).read() if member.isfile() else None)
+                for member in archive.getmembers()
+            ]
+        prefix = source.name.removesuffix(".tar.gz")
+        data = b"local experiment"
+        extra = tarfile.TarInfo(f"{prefix}/{name}")
+        extra.size = len(data)
+        members.append((extra, data))
+        with tarfile.open(source, "w:gz") as archive:
+            for member, data in members:
+                archive.addfile(member, io.BytesIO(data) if data is not None else None)
+    result = verify_distributions(packaged_project, tmp_path)
+    assert result.returncode != 0
+    assert message in result.stderr, result.stdout + result.stderr

@@ -28,6 +28,11 @@ venv/
 # Generated verification environments, benchmark outputs, and model caches
 /verification/
 /reports/
+/experiments/
+/local-experiments/
+/playground.ipynb
+/toy-test/
+/toy-test-typed-decisions/
 
 # Test coverage and temporary output
 .coverage

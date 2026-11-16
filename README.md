@@ -30,13 +30,14 @@ platforms, install an alternate engine with `pip install 'akiki[onnx]'` or
 
 ## Python usage
 
-The API is organized into three areas:
+The API has four modules:
 
 | Module | Main interface | Supporting types |
 | --- | --- | --- |
 | `akiki.vad` | `VAD` for speech detection | `SpeechFrame`, `Engine`, `ModelPrecision`, `FFTPrecision` |
 | `akiki.decision` | `DecisionModel` for base model selection; `MiniLM` for text inference | `BaseModel`, `Specialist`, `AffineLayer`, `list_base_models`, `Encoding`, `Classification`, `ModelPrecision` |
 | `akiki.training` | Optional classifier training | The companion package's public API, including `LocalModel`, `ModelFamily`, and `Trainer` |
+| `akiki.teacher` | Experimental review through a local or self-hosted server | `Teacher`, `Verdict`, `DecisionReview`, `TeachingResult` |
 
 `VAD` and `MiniLM` are also available as top-level shortcuts:
 
@@ -49,9 +50,9 @@ MiniLM have distinct `ModelPrecision` enums with different supported formats.
 The existing top-level result types and VAD enums remain available as
 compatibility aliases. Import `training` explicitly when its optional companion
 package is installed; the base package does not load it.
-`dir(akiki)` shows the main classes, modules, and version, with `training`
-included after import. Supporting aliases and internal modules remain
-accessible but are omitted from that list.
+`dir(akiki)` shows the main classes, modules, and version. The `training` and
+`teacher` modules appear after explicit import. Supporting aliases and internal
+modules remain accessible but are omitted from that list.
 
 The text inference module is named `akiki.decision`. Existing imports from
 `akiki.minilm` remain available for compatibility and use the same classes
@@ -83,7 +84,7 @@ The public API includes docstrings for editor hints and interactive help:
 ```python
 import akiki
 
-help(akiki)  # Overview of vad, decision, and optional training
+help(akiki)  # Overview of vad, decision, training, and teacher
 help(akiki.vad)  # Speech detection, configuration, and result types
 help(akiki.decision)  # Text inference, configuration, and result types
 help(akiki.VAD)  # Configuration, attributes, and streaming example
@@ -248,14 +249,14 @@ encoder snapshots already in local Hugging Face caches. Each exposes `name`,
 ```python
 from akiki.decision import DecisionModel, list_base_models
 
-models = list_base_models()
-model = DecisionModel()
-if models:
-    model.base_model = models[0]  # Choose the local snapshot to use.
-    print(model.base_model.path)
-    print(model.base_model.embedding_shape)  # (vocabulary rows, token vector width)
-    width = model.base_model.embedding_dim
-    print((width, width), (width,))  # Input affine weight and bias shapes.
+for base in list_base_models():
+    print(base.name, base.path, base.embedding_shape)
+
+# Select the exact local checkpoint that you intend to use.
+model = DecisionModel("path/to/local/MiniLM")
+print(model.base_model.embedding_shape)  # (vocabulary rows, token vector width)
+width = model.base_model.embedding_dim
+print((width, width), (width,))  # Input affine weight and bias shapes.
 ```
 
 You can also pass `base_model` to the constructor, assign a local checkpoint
@@ -321,7 +322,8 @@ embedding output dimensions can also differ. An input affine preserving a
 token width of `d` needs a `d × d` weight matrix and `d` biases; the
 classification head is separate.
 
-Discovery checks `/mnt/models/hub` and the configured Hugging Face caches.
+Discovery checks the configured Hugging Face caches and the system model cache,
+if present.
 Pass `list_base_models(cache_dir="path/to/hub")` to search a specific cache.
 It skips incomplete snapshots and generative models. Discovery and selection
 use local files only and require no optional training or Hugging Face packages.
@@ -668,15 +670,20 @@ Ordinary `MiniLM(path)` loading and inference do not contact Hugging Face.
 
 ## Training
 
-The separate `akiki-training` project owns Ariadne classifier training, dataset
-preparation, Ariadne Lab, and training tutorials. Its MiniLM classifier exports
-load with `akiki.MiniLM`; using those models does not require the training package.
+The separate `akiki-training` project supplies Ariadne classifier training.
+Dataset tools and Ariadne Lab have separate companion packages.
+Akiki includes the training API wrapper. Trainer implementations and Lab assets
+stay in the companion packages. Datasets and experiment outputs stay local.
+MiniLM classifier exports load with `akiki.MiniLM` without the training package.
 
-Install the optional training package through Akiki:
+Install the optional training runtime through Akiki:
 
 ```bash
 pip install 'akiki[training]'
 ```
+
+This extra selects `akiki-training[ariadne]`, including the trainer's optional
+dependencies. It does not install the dataset tools or Ariadne Lab.
 
 The thin `akiki.training` module forwards the public API declared by
 `akiki_training.__all__`, including its intent-training interface:
@@ -704,9 +711,10 @@ compatibility API. After editing an imported companion module, restart the
 notebook kernel or reload that module; editable installs do not reload Python
 objects automatically.
 
-Training dependencies are optional and do not load during ordinary inference
-imports. The companion commands are `akiki-training train` and
-`akiki-training lab --open`.
+Training dependencies do not load during ordinary inference imports.
+Use `akiki-training train` for command-line training.
+Install `akiki-training-lab` separately to use Ariadne Lab. Its command is
+`akiki-lab --open`. Lab runs on your own computer or infrastructure.
 
 ## Development
 

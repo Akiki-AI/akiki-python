@@ -1,4 +1,15 @@
 include LICENSE THIRD_PARTY_NOTICES.txt README.md
 recursive-include src/akiki/models *.onnx *.pt *.safetensors *.json *.md *.txt
 include tools/build_native.py
+include verify_dist.py
+include docs/releasing.md docs/style.md
 recursive-include tests *.py
+prune .akiki-lab
+prune .cache
+prune experiments
+prune local-experiments
+prune reports
+prune toy-test
+prune toy-test-typed-decisions
+prune verification
+global-exclude *.ipynb *.py[cod]
