@@ -121,7 +121,9 @@ def check_metadata(data):
             'huggingface-hub>=0.24; extra == "huggingface"',
             'onnxruntime>=1.17; extra == "onnx"',
             'torch>=2.1; extra == "pytorch"',
-            'akiki-training[ariadne]>=0.1.0; extra == "training"',
+            'torch>=2.1; extra == "training"',
+            'transformers<6,>=4.40; extra == "training"',
+            'safetensors>=0.4; extra == "training"',
         },
         "Runtime dependencies must be optional and independently selectable",
     )

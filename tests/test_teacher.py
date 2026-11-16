@@ -8,6 +8,7 @@ import threading
 from collections import deque
 from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -372,14 +373,22 @@ from akiki.teacher import Teacher
 Teacher('http://localhost:8000', model='teacher')
 """
     subprocess.run(
-        [sys.executable, "-c", code], check=True, env={**os.environ, "HF_HUB_OFFLINE": "1"}
+        [sys.executable, "-c", code],
+        check=True,
+        env={
+            **os.environ,
+            "HF_HUB_OFFLINE": "1",
+            "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src"),
+        },
     )
 
 
 def test_feedback_can_continue_specialist_training(
     server, tmp_path, tiny_minilm, require_minilm_library
 ):
-    training = pytest.importorskip("akiki.training")
+    pytest.importorskip("akiki_training.training")
+    from akiki import training
+
     torch = pytest.importorskip("torch")
     pytest.importorskip("transformers")
     pytest.importorskip("safetensors")

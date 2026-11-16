@@ -116,9 +116,9 @@ VAD examples require a working local engine. Examples with placeholder text-mode
 paths are skipped. The normal suite uses synthetic local checkpoints for native
 text tests. Real-model tests require an explicit `AKIKI_MINILM_MODEL` path.
 
-Training tests require the separate companion and its Ariadne dependencies.
-Install `akiki-training[ariadne]` from an existing local checkout or a tested
-package version. The base development group does not install it.
+Training tests require the private companion and its Ariadne dependencies.
+Install it from an authorized local checkout or wheel.
+The `training` extra supplies runtimes only. The base development group installs neither component.
 Use the test summary to identify skipped optional-runtime checks.
 Passing inference tests does not establish that the optional training tests ran.
 

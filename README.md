@@ -40,7 +40,7 @@ The API has four modules:
 | --- | --- | --- |
 | `akiki.vad` | `VAD` for speech detection | `SpeechFrame`, `Engine`, `ModelPrecision`, `FFTPrecision` |
 | `akiki.decision` | `DecisionModel` for specialist inference; `MiniLM` for direct text inference | `BaseModel`, `Specialist`, `AffineLayer`, `TrainedSpecialist`, `SpecialistEvaluation`, `TrainingAdvice`, `list_base_models`, `Encoding`, `Classification`, `ModelPrecision` |
-| `akiki.training` | Optional classifier training | The companion package's public API, including `LocalModel`, `ModelFamily`, and `Trainer` |
+| `akiki.training` | Classifier training with a private companion | The installed companion's API, including `LocalModel`, `ModelFamily`, and `Trainer` |
 | `akiki.teacher` | Experimental review through a local or self-hosted server | `Teacher`, `Verdict`, `DecisionReview`, `TeachingResult` |
 
 `VAD` and `MiniLM` are also available as top-level shortcuts:
@@ -357,7 +357,7 @@ Pass `list_base_models(cache_dir="path/to/hub")` to search a specific cache.
 It skips incomplete snapshots and generative models. Discovery and selection
 use local files only and require no optional training or Hugging Face packages.
 
-`Specialist.train()` calls the optional `akiki-training` trainer
+`Specialist.train()` calls the separately installed private `akiki-training` companion
 and reuses a complete saved adapter when its base, examples, holdouts, and
 training configuration match. The saved artifact retains both the input affine
 and the separate classification head, with the label order and training report:
@@ -383,7 +383,7 @@ report  # Displays a per-intent table in a notebook.
 ```
 
 Labels in `TrainedSpecialist.labels` are sorted by intent name.
-Training requires the optional companion even when it reuses a saved result.
+Training requires the private companion even when it reuses a saved result.
 Saved-report evaluation and native inference do not require the companion.
 
 Classify with the saved specialist through the Akiki MiniLM engine used by `MiniLM`.
@@ -486,7 +486,7 @@ Evaluation of a saved result works without loading a training runtime.
 The local-teacher API sends `specialist.examples` as reference data.
 Use separate explicit validation and test dictionaries to keep holdouts out
 of those references. Custom teachers control their own model and network access.
-`Specialist.suggest_examples()` requires the optional training companion,
+`Specialist.suggest_examples()` requires the private training companion,
 including when a custom teacher is supplied.
 
 An experimental server-backed teacher can review the decisions of an attached,
@@ -735,7 +735,9 @@ required checkpoint files must already exist there.
 
 ## Training
 
-The separate `akiki-training` project supplies Ariadne classifier training.
+The private `akiki-training` project supplies Ariadne classifier training.
+Akiki 0.2.0 includes its API wrapper, not the trainer implementation.
+Training requires authorized access to a separate local companion installation.
 Ariadne adapts the query's representation so a frozen model can use its existing
 latent capabilities. The input affine is separate from the classification head.
 The general technique applies to general-purpose LLMs and typically trains
@@ -743,17 +745,28 @@ fewer than 1% of the base model's parameters. Supported checkpoints depend on
 the installed implementation; native inference here supports MiniLM/BERT exports.
 Dataset tools and Ariadne Lab have separate companion packages.
 Akiki includes the training API wrapper. Trainer implementations and Lab assets
-stay in the companion packages. Datasets and experiment outputs stay local.
+stay in the private companion projects. Datasets and experiment outputs stay local.
 MiniLM classifier exports load with `akiki.MiniLM` without the training package.
 
-Install the optional training runtime through Akiki:
+Install the optional runtime dependencies through Akiki:
 
 ```bash
 pip install 'akiki[training]'
 ```
 
-This extra selects `akiki-training[ariadne]`, including the trainer's optional
-dependencies. It does not install the dataset tools or Ariadne Lab.
+This extra installs PyTorch, Transformers, and safetensors.
+It does not install, download, or include the private training implementation.
+The extra alone cannot train a model.
+
+Obtain an authorized local companion checkout or wheel.
+For an existing checkout, install its Ariadne dependencies:
+
+```bash
+python -m pip install -e 'path/to/akiki-training[ariadne]'
+```
+
+The companion is not distributed on PyPI with this release.
+Its own dependency requirements also apply. No private code is fetched automatically.
 
 The thin `akiki.training` module forwards the public API declared by
 `akiki_training.__all__`, including its intent-training interface:
@@ -782,9 +795,9 @@ notebook kernel or reload that module; editable installs do not reload Python
 objects automatically.
 
 Training dependencies do not load during ordinary inference imports.
-Use `akiki-training train` for command-line training.
-Install `akiki-training-lab` separately to use Ariadne Lab. Its command is
-`akiki-lab --open`. Lab runs on your own computer or infrastructure.
+An authorized companion installation supplies `akiki-training train` for command-line training.
+Ariadne Lab also requires its separate private installation.
+Its command is `akiki-lab --open`. Lab runs on your own computer or infrastructure.
 
 ## Development
 

@@ -14,8 +14,9 @@ The public API is organized into four areas:
     ``ModelPrecision`` enum. Pass a local MiniLM checkpoint or Ariadne variant;
     MiniLM weights are not bundled.
 ``akiki.training``
-    Optional classifier training backed by the separate ``akiki-training``
-    package. Install ``akiki[training]``, then use ``from akiki import training``.
+    Optional classifier training backed by the private ``akiki-training``
+    companion. Install it separately from an authorized local checkout or wheel.
+    ``akiki[training]`` installs runtime dependencies only.
     Importing Akiki alone does not load the training package or its runtimes.
 ``akiki.teacher``
     Experimental review of specialist decisions using an OpenAI-compatible

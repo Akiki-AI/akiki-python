@@ -143,9 +143,8 @@ def train_specialist(
     resume_from=None,
     on_epoch=None,
 ) -> TrainedSpecialist:
-    import akiki_training
-
     from . import training
+    from .training import _backend
 
     base = _resolve_base_model(base_model)
     if config is None:
@@ -214,7 +213,7 @@ def train_specialist(
     }
     context = {
         "version": 1,
-        "backend_version": akiki_training.__version__,
+        "backend_version": _backend.__version__,
         "base_model": _base_identity(base),
         "intents": intents,
         "examples_digest": _digest(sorted(specialist.examples.items())),
@@ -288,13 +287,13 @@ def evaluate_specialist(specialist, base_model=None) -> SpecialistEvaluation:
 def suggest_examples(
     specialist, teacher, *, examples_per_intent=5, intents=None, excluded_examples=None
 ) -> dict[str, str]:
-    from akiki_training.teacher import LocalTeacher, validate_suggestions
+    from .training import _backend
 
     if type(examples_per_intent) is not int or examples_per_intent <= 0:
         raise ValueError("examples_per_intent must be a positive integer")
 
     if isinstance(teacher, (str, Path)):
-        teacher = LocalTeacher(teacher)
+        teacher = _backend.teacher.LocalTeacher(teacher)
     if not hasattr(teacher, "generate_examples"):
         raise TypeError("teacher must be a local checkpoint path or provide generate_examples()")
     chosen = set(specialist.intents if intents is None else intents)
@@ -319,7 +318,7 @@ def suggest_examples(
         examples_per_intent=examples_per_intent,
         excluded_texts=sorted(excluded),
     )
-    proposed = validate_suggestions(values, chosen, specialist.examples, excluded)
+    proposed = _backend.teacher.validate_suggestions(values, chosen, specialist.examples, excluded)
     return {
         text: intent for text, intent in proposed.items() if _text_hash(text) not in blocked_hashes
     }

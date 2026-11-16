@@ -25,6 +25,14 @@ Follow [the Python style guide](docs/style.md) for code changes.
 - Describe `Engine.AUTO` as trying Akiki first, then those compatibility fallbacks.
 - Do not use the implementation language as the Akiki engine's name.
 
+## Private training companion
+
+- Keep the `akiki-training` implementation private until the user authorizes its publication.
+- Do not bundle its source or private wheels in public Akiki distributions.
+- Keep the public training API wrapper available for separately installed local companions.
+- The `training` extra installs runtime dependencies only.
+- Document the need for an authorized local companion checkout or wheel.
+
 ## Ariadne terminology
 
 - Describe Ariadne as adapting the query's representation so a frozen model can

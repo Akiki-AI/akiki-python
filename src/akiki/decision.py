@@ -154,7 +154,8 @@ class Specialist:
 
         Notes
         -----
-        Install ``akiki[training]`` even when requesting a cached fit.
+        Install the private training companion, including when requesting a cached fit.
+        The ``akiki[training]`` extra installs runtime dependencies only.
         Inference and saved-report evaluation do not require that extra.
         Cache matching includes the data, holdouts, configuration, base identity,
         and companion version. Invalid saved results raise errors without retraining.
@@ -196,7 +197,7 @@ class Specialist:
         """Propose samples for review without changing the specialist's examples.
 
         ``teacher`` is an explicit local checkpoint path, ``LocalTeacher``,
-        or an object implementing ``generate_examples``. The optional training
+        or an object implementing ``generate_examples``. The private training
         companion is required, including when using a custom teacher.
         For a server teacher, use ``akiki.teacher.Teacher.review`` instead.
 

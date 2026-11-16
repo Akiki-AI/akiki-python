@@ -45,12 +45,20 @@ exec('from akiki import *', namespace)
 assert namespace['vad'].VAD is akiki.VAD
 assert namespace['decision'].MiniLM is akiki.MiniLM
 assert 'akiki.training' not in sys.modules
-try:
-    import akiki.training
-except ImportError as error:
-    assert "pip install 'akiki[training]'" in str(error), error
-else:
-    raise AssertionError('The missing training package was ignored')
+import importlib
+for operation in (
+    lambda: importlib.import_module('akiki.training'),
+    lambda: akiki.decision.Specialist().train('missing-local-model'),
+    lambda: akiki.decision.Specialist().suggest_examples(object()),
+):
+    try:
+        operation()
+    except ImportError as error:
+        assert 'private akiki-training companion' in str(error), error
+        assert 'authorized local checkout or wheel' in str(error), error
+        assert 'runtime dependencies only' in str(error), error
+    else:
+        raise AssertionError('The missing private companion was ignored')
 """,
         tmp_path,
     )

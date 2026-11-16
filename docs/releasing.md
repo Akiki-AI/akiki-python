@@ -45,13 +45,17 @@ tests, and release verification tools. Packaging rules exclude local experiment
 directories and notebooks. `verify_dist.py` rejects local artifacts and
 unexpected package files in the built archives.
 
-The training implementation, dataset tools, and Lab belong to separate
-companion packages. Akiki's `training` extra selects
-`akiki-training[ariadne]`. Before publication, make the tested companion version
-available from the intended package index. Test the extra in a clean environment
-without an editable companion checkout. Check that base inference still works
-without training dependencies. Install `akiki-training-lab` separately for
-`akiki-lab --open`.
+The training implementation, dataset tools, and Lab remain private.
+Do not publish or bundle their code with Akiki 0.2.0.
+The public package retains the training API wrapper.
+Its `training` extra installs runtime dependencies only.
+Authorized users must install the private companion from a local checkout or wheel.
+
+Test the public wrapper with a separate local companion wheel.
+Check that base inference and server teacher imports work without that companion.
+Verify that public wheel metadata has no dependency on the unpublished companion.
+Verify that public archives contain no `akiki_training` package.
+Keep the private wheel and its validation outputs under `verification/`.
 
 ## Build the Linux x86_64 release
 

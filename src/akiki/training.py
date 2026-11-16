@@ -1,4 +1,4 @@
-"""Forward the public API of the optional ``akiki-training`` package.
+"""Forward the API of the separately installed private training companion.
 
 Use ``train_intents`` for intent classifiers, ``train`` with a configured
 trainer, and ``list_local_models`` to inspect existing local checkpoints.
@@ -15,9 +15,11 @@ API also exports them.
 Python caches imported modules. After editing the companion package, restart
 the notebook kernel or reload the changed companion modules to see new code.
 
-Install ``akiki[training]``, then use ``from akiki import training``. The trainer
-is maintained in the separate akiki-training project. The extra selects its
-``ariadne`` runtime dependencies. Importing the wrapper does not load PyTorch
+Install ``akiki[training]`` for runtime dependencies. Obtain the private
+``akiki-training`` companion through an authorized local checkout or wheel.
+Install that companion separately, then use ``from akiki import training``.
+The public Akiki package does not include or download its implementation.
+The extra alone does not provide a trainer. Importing the wrapper does not load PyTorch
 or Transformers. Training and local teacher generation load optional runtimes
 when called. Dataset tools and Lab require separate companion packages.
 
@@ -33,8 +35,9 @@ except ModuleNotFoundError as error:
     if error.name not in {"akiki_training", "akiki_training.training"}:
         raise
     raise ImportError(
-        "Akiki training requires the optional akiki-training package. "
-        "Install it with: pip install 'akiki[training]'"
+        "Akiki training requires the private akiki-training companion. "
+        "Install it from an authorized local checkout or wheel. "
+        "The akiki[training] extra installs runtime dependencies only."
     ) from error
 
 
