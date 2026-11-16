@@ -40,7 +40,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Check out pinned Rust engine
+      - name: Check out pinned Akiki engine
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Akiki-AI/akiki-inference
@@ -72,7 +72,7 @@ jobs:
           rustup toolchain install 1.98.1 --profile minimal
           rustup default 1.98.1
 
-      - name: Cache Rust dependencies locally
+      - name: Cache build dependencies locally
         run: cargo fetch --locked --manifest-path .cache/akiki-inference/Cargo.toml
 
       - name: Test native model loading
@@ -104,8 +104,8 @@ jobs:
       # MiniLM binding, and the real-model tests skip.
       - name: Run Python tests with the native engines required
         env:
-          AKIKI_VAD_TEST_RUST: "1"
-          AKIKI_MINILM_TEST_RUST: "1"
+          AKIKI_VAD_TEST_NATIVE: "1"
+          AKIKI_MINILM_TEST_NATIVE: "1"
         run: python -m pytest -q
 
       - name: Test native wheel in a clean base installation
@@ -123,13 +123,13 @@ jobs:
           assert importlib.util.find_spec("onnxruntime") is None
           assert importlib.util.find_spec("torch") is None
           with akiki.VAD() as vad:
-              assert vad.engine is akiki.Engine.RUST
+              assert vad.engine is akiki.Engine.AKIKI
               assert vad.model_precision is akiki.ModelPrecision.INT8
               assert vad.fft_precision is akiki.FFTPrecision.FP32
               assert Path(vad._backend.lib._name).parent == Path(akiki.__file__).parent / "native"
               assert len(vad.push(np.zeros(256 * 3 + 17, np.float32))) == 3
           assert _load_library()[1].parent == Path(akiki.__file__).parent / "native"
-          print("Native wheel: bundled Rust engines, INT8, base dependencies only")
+          print("Native wheel: bundled Akiki engines, INT8, base dependencies only")
           PY
 
       - name: Test portable wheel with the ONNX extra
@@ -147,7 +147,7 @@ jobs:
           with VAD() as vad:
               assert vad.engine is Engine.ONNX and vad.model_precision is ModelPrecision.FP32
               assert len(vad.push(np.zeros(256 * 3 + 17, np.float32))) == 3
-          print("Portable wheel: ONNX fallback, no PyTorch dependency")
+          print("Portable wheel: ONNX compatibility fallback, no PyTorch dependency")
           PY
 
       - name: Save verified distributions
@@ -177,7 +177,7 @@ jobs:
       - name: Install SSH checkout support
         run: dnf install -y openssh-clients
 
-      - name: Check out pinned Rust engine
+      - name: Check out pinned Akiki engine
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Akiki-AI/akiki-inference
@@ -213,10 +213,10 @@ jobs:
           python verify_dist.py --all-wheels --require-native --require-arm64
           python -m twine check --strict dist/*
 
-      - name: Test Rust engines and Python precision/streaming APIs
+      - name: Test Akiki engines and Python precision/streaming APIs
         env:
-          AKIKI_VAD_TEST_RUST: "1"
-          AKIKI_MINILM_TEST_RUST: "1"
+          AKIKI_VAD_TEST_NATIVE: "1"
+          AKIKI_MINILM_TEST_NATIVE: "1"
           AKIKI_KERNELS_REQUIRE_SIMD: "1"
         run: |
           manifest=.cache/akiki-inference/Cargo.toml
@@ -250,11 +250,11 @@ jobs:
               "libakiki_vad_engine.so", "libakiki_minilm_engine.so"
           }
           with akiki.VAD() as vad:
-              assert vad.engine is akiki.Engine.RUST and vad.model_precision is akiki.ModelPrecision.INT8
+              assert vad.engine is akiki.Engine.AKIKI and vad.model_precision is akiki.ModelPrecision.INT8
               assert Path(vad._backend.lib._name).parent == native
               assert len(vad.push(np.zeros(256 * 3 + 17, np.float32))) == 3
           assert _load_library()[1].parent == native
-          print("ARM64 wheel: Rust VAD and experimental MiniLM, base dependencies only")
+          print("ARM64 wheel: Akiki VAD and experimental MiniLM, base dependencies only")
           PY
 
       - name: Save verified ARM64 wheel

@@ -1,4 +1,4 @@
-"""DecisionModel must classify saved specialists with the existing Rust binding."""
+"""DecisionModel must classify saved specialists with the existing Akiki binding."""
 
 import hashlib
 import json

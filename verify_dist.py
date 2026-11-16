@@ -22,7 +22,9 @@ parser.add_argument(
 )
 parser.add_argument("--all-wheels", action="store_true", help="Verify all wheels for this version")
 parser.add_argument(
-    "--require-native", action="store_true", help="Require at least one wheel with the Rust library"
+    "--require-native",
+    action="store_true",
+    help="Require at least one wheel with the Akiki library",
 )
 parser.add_argument(
     "--require-arm64", action="store_true", help="Require the experimental ARM64 native wheel"
@@ -170,11 +172,11 @@ def check_models(read, names):
         require(
             hashlib.sha256(read(prefix + "akiki-vad-native/" + filename)).hexdigest()
             == receipt[key],
-            "Wrong Rust model bytes",
+            "Wrong Akiki model bytes",
         )
     require(
         receipt["source_checkpoint_sha256"] == release["files"]["akiki-vad.pt"]["sha256"],
-        "Rust export belongs to another checkpoint",
+        "Akiki export belongs to another checkpoint",
     )
     return dict(model_id=expected_id, seed=1730, checkpoint_window=31, onnx_sha256=expected_hash)
 
@@ -277,7 +279,7 @@ for wheel in wheels:
         checks["wheels"][wheel.name] = info
 require(
     not args.require_native or native_count > 0,
-    "No native wheel found; build and repair the Rust wheel before publishing",
+    "No native wheel found; build and repair the Akiki wheel before publishing",
 )
 require(not args.require_arm64 or arm64_count > 0, "The experimental ARM64 native wheel is missing")
 with tarfile.open(source) as archive:

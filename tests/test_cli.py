@@ -52,6 +52,19 @@ def test_vad_cli_rejects_unknown_engine(monkeypatch, capsys):
     assert "--engine: invalid Engine value" in capsys.readouterr().err
 
 
+def test_vad_help_names_akiki_as_primary_and_optional_engines_as_compatibility_fallbacks(
+    monkeypatch, capsys
+):
+    monkeypatch.setattr(sys, "argv", ["akiki", "vad", "--help"])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 0
+    output = " ".join(capsys.readouterr().out.split())
+    assert "--engine {auto,akiki,onnx,pytorch}" in output
+    assert "primary Akiki engine" in output
+    assert "ONNX and PyTorch as compatibility fallbacks" in output
+
+
 @pytest.mark.parametrize("model_precision", [None, *akiki.ModelPrecision])
 @pytest.mark.parametrize("fft_precision", [None, *akiki.FFTPrecision])
 def test_vad_cli_converts_precisions_to_enums(model_precision, fft_precision, monkeypatch):
@@ -190,7 +203,7 @@ def test_vad_engine_errors_include_the_command_prefix(monkeypatch, capsys):
     assert output.err == "akiki vad: No compatible engine\n"
 
 
-def test_python_module_runs_vad_and_leaves_incomplete_frame_unscored(tmp_path, require_rust):
+def test_python_module_runs_vad_and_leaves_incomplete_frame_unscored(tmp_path, require_akiki):
     audio = tmp_path / "recording.wav"
     sf.write(audio, np.zeros(256 * 3 + 17, np.float32), 16000)
     env = os.environ.copy()
@@ -203,7 +216,7 @@ def test_python_module_runs_vad_and_leaves_incomplete_frame_unscored(tmp_path, r
             "vad",
             str(audio),
             "--engine",
-            "rust",
+            "akiki",
             "--model-precision",
             "fp32",
             "--threshold",

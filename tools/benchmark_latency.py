@@ -10,7 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-CASES = ("auto_push", "rust_push", "onnx_push", "rust_adapter", "rust_ffi", "rust_sequence_64")
+CASES = ("auto_push", "akiki_push", "onnx_push", "akiki_adapter", "akiki_ffi", "akiki_sequence_64")
 
 
 def worker(args):
@@ -32,7 +32,7 @@ def worker(args):
         if args.worker == "auto_push"
         else Engine.ONNX
         if args.worker == "onnx_push"
-        else Engine.RUST
+        else Engine.AKIKI
     )
     try:
         vad = VAD(
@@ -65,7 +65,7 @@ def worker(args):
                 return vad.push(chunks[i % len(chunks)])
 
             scope = "Public push: validation, buffering, frontend, GRU, state handling, timestamps and SpeechFrame"
-        elif args.worker == "rust_adapter":
+        elif args.worker == "akiki_adapter":
             padded = np.pad(audio, (vad.context_samples, 0))
             windows = [
                 padded[i * hop : i * hop + vad.context_samples + hop] for i in range(len(chunks))
@@ -74,8 +74,8 @@ def worker(args):
             def call(i):
                 return backend.infer(windows[i % len(windows)], vad.state)
 
-            scope = "Rust Python adapter: native inference, pointer conversion, state allocation and readback"
-        elif args.worker == "rust_ffi":
+            scope = "Akiki Python adapter: native inference, pointer conversion, state allocation and readback"
+        elif args.worker == "akiki_ffi":
             pointers = [chunk.ctypes.data for chunk in chunks]
             function, handle = backend.lib.akiki_vad_chunk_len, backend.handle
 
@@ -122,9 +122,9 @@ def worker(args):
             last[0].probability
             if args.worker.endswith("_push")
             else last[0]
-            if args.worker == "rust_adapter"
+            if args.worker == "akiki_adapter"
             else last
-            if args.worker == "rust_ffi"
+            if args.worker == "akiki_ffi"
             else output[-1]
         )
         assert np.isfinite(probability) and 0 <= probability <= 1
@@ -171,7 +171,7 @@ def main():
         "--model-precision",
         type=ModelPrecision,
         default=None,
-        help="Default: INT8 for Rust, FP32 for ONNX/PyTorch",
+        help="Default: INT8 for Akiki, FP32 for ONNX/PyTorch",
         choices=list(ModelPrecision),
     )
     parser.add_argument("--cache-dir", type=Path)

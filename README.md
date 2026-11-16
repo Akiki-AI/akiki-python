@@ -8,7 +8,7 @@ Training uses an optional companion package. An experimental teacher API can
 request example proposals from a server on your own computer or infrastructure.
 
 The VAD model is included in the package. VAD runs locally, without a model
-download, network connection, or external service. The Rust engine uses INT8
+download, network connection, or external service. The Akiki engine uses INT8
 model inference by default, with an FP32 FFT.
 
 ## Install
@@ -28,9 +28,9 @@ Or add it to a uv project:
 uv add akiki
 ```
 
-The base installation uses the bundled Rust engine on supported hosts. On other
-platforms, install an alternate engine with `pip install 'akiki[onnx]'` or
-`pip install 'akiki[pytorch]'`.
+The base installation uses the Akiki engine on supported hosts.
+ONNX and PyTorch provide compatibility fallbacks for VAD.
+Install `akiki[onnx]` or `akiki[pytorch]` when you need a compatibility engine.
 
 ## Python usage
 
@@ -118,33 +118,35 @@ training command belongs to the separate companion package.
 
 ## Inference engines
 
-Linux x86_64 wheels include the compiled Rust engine for systems with glibc
-2.34 or later. Pip and uv select the compatible wheel automatically; no Rust
-toolchain is needed to install it.
+The Akiki engine is the primary engine for VAD and MiniLM.
+ONNX and PyTorch are VAD compatibility fallbacks.
+
+Linux x86_64 wheels include the Akiki engine for systems with glibc 2.34 or later.
+Pip and uv select a compatible wheel automatically. No engine build is required.
 
 Version **0.1.2** includes **Linux ARM64 VAD support**, including Raspberry Pi 5
-with a 64-bit OS and glibc 2.28 or later. This wheel includes the Rust VAD library
+with a 64-bit OS and glibc 2.28 or later. This wheel includes the Akiki VAD library
 and supports all six VAD precision modes with the same INT8 default. INT8
 projections automatically use KleidiAI Neon DotProd kernels on compatible CPUs,
 with a portable fallback on older ARM64 CPUs. Other precisions retain portable
 execution. The optimized path has been tested on a physical Raspberry Pi 5.
 
-Version **0.1.4** also includes the Rust MiniLM engine in the Linux ARM64 wheel.
+Version **0.1.4** also includes the Akiki MiniLM engine in the Linux ARM64 wheel.
 **ARM64 MiniLM support is experimental**, including inference with local Ariadne
 adapters. It uses the existing MiniLM API and requires glibc 2.28 or later.
 
-`VAD(engine=Engine.AUTO)` selects Rust when a compatible native library is available,
-then tries ONNX Runtime and PyTorch if they are installed. Both are optional;
-the base package requires neither runtime.
+`VAD(engine=Engine.AUTO)` tries the Akiki engine first.
+If it is unavailable, selection tries ONNX, then PyTorch.
+The compatibility engines are optional. The base package requires neither runtime.
 
-To use ONNX Runtime:
+To install the ONNX compatibility engine:
 
 ```bash
 pip install 'akiki[onnx]'
 # or: uv add 'akiki[onnx]'
 ```
 
-To use PyTorch:
+To install the PyTorch compatibility engine:
 
 ```bash
 pip install 'akiki[pytorch]'
@@ -155,20 +157,20 @@ The PyTorch extra does not install ONNX Runtime. Install `akiki[onnx,pytorch]`
 if you want both alternatives. If no engine is available, Akiki raises an error
 with installation instructions.
 
-Import `Engine` from `akiki` and choose an engine with `VAD(engine=Engine.RUST)`,
+Import `Engine` from `akiki` and choose an engine with `VAD(engine=Engine.AKIKI)`,
 `VAD(engine=Engine.ONNX)`, or `VAD(engine=Engine.PYTORCH)`. The default is
 `Engine.AUTO`; the Python API requires enum members. On the command line, use
-`akiki vad recording.wav --engine rust`, `--engine onnx`, or `--engine pytorch`.
+`akiki vad recording.wav --engine akiki`, `--engine onnx`, or `--engine pytorch`.
 An explicitly selected engine raises an error if it is unavailable. Check
 `vad.engine` to see the active `Engine` member. `vad.engine_errors` maps
 `Engine` members to the reasons they were unavailable during automatic selection.
 
 All VAD engines use the same bundled model and streaming API.
-ONNX and PyTorch alternatives apply to VAD. Native text inference requires Rust.
+The compatibility fallbacks apply to VAD. Text inference requires the Akiki engine.
 
 ## Model precision
 
-`VAD()` and the command line use INT8 by default when running the Rust engine.
+`VAD()` and the command line use INT8 by default when running the Akiki engine.
 The package generates the INT8 weights from the bundled FP32 model on first use
 and reuses them from the local cache. The FFT remains FP32.
 
@@ -178,7 +180,7 @@ original FP32 weights:
 ```python
 from akiki.vad import VAD, Engine, ModelPrecision
 
-with VAD(engine=Engine.RUST, model_precision=ModelPrecision.FP32) as vad:
+with VAD(engine=Engine.AKIKI, model_precision=ModelPrecision.FP32) as vad:
     frames = vad.push(audio, sample_rate=sample_rate)
 ```
 
@@ -190,7 +192,7 @@ akiki vad recording.wav --model-precision fp32
 
 | `model_precision` | Convolution and GRU projections |
 | --- | --- |
-| `ModelPrecision.INT8` (Rust default) | INT8 weights and dynamically quantized activations |
+| `ModelPrecision.INT8` (Akiki default) | INT8 weights and dynamically quantized activations |
 | `ModelPrecision.FP32` | Original FP32 weights and activations |
 | `ModelPrecision.FP16` | FP16 weights, FP32 activations and accumulation |
 | `ModelPrecision.BF16` | BF16 weights and projection activations, FP32 accumulation |
@@ -213,8 +215,8 @@ original weights are preserved; incomplete or corrupt cache entries are rebuilt.
 Check `vad.model_precision` and `vad.fft_precision` to inspect the enum settings.
 When no model precision is specified, ONNX and PyTorch use FP32, including when
 `engine=Engine.AUTO` falls back to either runtime. Explicit precision requests are
-always honored: non-FP32 precision requires Rust and raises an error if a
-compatible Rust engine is unavailable.
+always honored: non-FP32 precision requires the Akiki engine and raises an error if a
+compatible Akiki engine is unavailable.
 
 ## Precision and performance
 
@@ -251,7 +253,7 @@ differences do not establish a statistically significant accuracy improvement.
 ## Decision models
 
 `DecisionModel` selects a local text checkpoint through its `base_model`
-property and classifies saved specialists with the native Rust engine.
+property and classifies saved specialists with the native Akiki engine.
 `list_base_models()` returns `BaseModel` descriptors for
 encoder snapshots already in local Hugging Face caches. Each exposes `name`,
 `path`, `vocab_size`, `embedding_dim`, and `embedding_shape`:
@@ -384,8 +386,8 @@ Labels in `TrainedSpecialist.labels` are sorted by intent name.
 Training requires the optional companion even when it reuses a saved result.
 Saved-report evaluation and native inference do not require the companion.
 
-Classify with the saved specialist through the same `akiki-inference` Rust
-MiniLM library used by `MiniLM`. The result includes the predicted `label`, its
+Classify with the saved specialist through the Akiki MiniLM engine used by `MiniLM`.
+The result includes the predicted `label`, its
 `index`, and `probabilities` and `logits` in `trained.labels` order:
 
 ```python
@@ -425,7 +427,7 @@ noticed on the next inference call. Use a context manager or `close()` to
 release all native resources. Inference calls on one `DecisionModel` are serialized.
 Do not change specialist data or its attached set during inference.
 
-The current Rust engine folds each input affine into its own embedding table
+The current Akiki engine folds each input affine into its own embedding table
 in memory, so different specialists currently load separate base copies. Saved
 checkpoint and adapter files stay unchanged. `model_precision` defaults to
 `ModelPrecision.INT8`, as for `MiniLM`; use `FP32` for comparisons with training
@@ -556,7 +558,7 @@ run with explicit validation/test data, supply the original holdouts to `train()
 
 ## MiniLM text models
 
-`akiki.MiniLM` runs MiniLM sentence encoders locally with the Rust engine. It
+`akiki.MiniLM` runs MiniLM sentence encoders locally with the Akiki engine. It
 loads plain checkpoints, such as `sentence-transformers/all-MiniLM-L6-v2`, and
 Akiki Ariadne variants that add a small adapter to the frozen encoder, such as
 the Akiki MiniLM-L6-v2 Clover intent classifier.
@@ -629,7 +631,7 @@ between texts. Keep the instance open until all worker calls have finished.
 longer than `model.max_tokens`. `encode_chunks()` requires complete token
 sequences and positive finite weights. It adds no special tokens.
 
-MiniLM requires the Rust engine included in Linux x86_64 and ARM64 wheels;
+MiniLM requires the Akiki engine included in Linux x86_64 and ARM64 wheels;
 **ARM64 MiniLM support is experimental**. It has no ONNX or PyTorch alternative.
 It uses up to four CPU threads by default; set `threads` to change this.
 Projections use `akiki.decision.ModelPrecision.INT8` by default. To use the

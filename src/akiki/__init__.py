@@ -1,4 +1,4 @@
-"""Local speech and text inference, with optional classifier training.
+"""Local model inference and training.
 
 The public API is organized into four areas:
 
@@ -8,7 +8,7 @@ The public API is organized into four areas:
     ``ModelPrecision``, and ``FFTPrecision`` enums. The VAD model is bundled.
 ``akiki.decision``
     Select a local encoder with ``DecisionModel`` and ``list_base_models``.
-    Classify saved specialists with ``DecisionModel`` through the Rust engine.
+    Classify saved specialists with ``DecisionModel`` through the Akiki engine.
     Run text embeddings and classification directly with ``MiniLM``. Results are
     ``Encoding`` and ``Classification`` objects. This module has its own
     ``ModelPrecision`` enum. Pass a local MiniLM checkpoint or Ariadne variant;

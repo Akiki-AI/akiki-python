@@ -14,11 +14,11 @@ from akiki import _quantization as quant
 from akiki.decision import ModelPrecision as MiniLMPrecision
 
 
-@pytest.mark.parametrize("engine", [Engine.AUTO, Engine.RUST])
-def test_default_rust_precision_matches_explicit_int8(engine, tmp_path, require_rust):
+@pytest.mark.parametrize("engine", [Engine.AUTO, Engine.AKIKI])
+def test_default_akiki_precision_matches_explicit_int8(engine, tmp_path, require_akiki):
     audio = np.random.default_rng(42).normal(0, 0.1, 256 * 9 + 71).astype(np.float32)
     with VAD(engine=engine, cache_dir=tmp_path) as default:
-        assert default.engine is Engine.RUST
+        assert default.engine is Engine.AKIKI
         assert (
             default.model_precision is ModelPrecision.INT8
             and default.fft_precision is FFTPrecision.FP32
@@ -31,13 +31,13 @@ def test_default_rust_precision_matches_explicit_int8(engine, tmp_path, require_
 
 
 @pytest.mark.parametrize("precision", list(ModelPrecision))
-def test_precision_streaming_and_cache_reuse(precision, tmp_path, require_rust, monkeypatch):
+def test_precision_streaming_and_cache_reuse(precision, tmp_path, require_akiki, monkeypatch):
     monkeypatch.setitem(sys.modules, "onnxruntime", None)
     monkeypatch.setitem(sys.modules, "torch", None)
     audio = np.random.default_rng(42).normal(0, 0.1, 256 * 9 + 71).astype(np.float32)
     with VAD(model_precision=precision, cache_dir=tmp_path) as detector:
         expected = detector.push(audio)
-        assert detector.engine is Engine.RUST
+        assert detector.engine is Engine.AKIKI
         assert detector.model_precision is precision and detector.fft_precision is FFTPrecision.FP32
         assert len(expected) == 9 and len(detector.pending) == 71
         assert all(np.isfinite(f.probability) and 0 <= f.probability <= 1 for f in expected)
@@ -67,7 +67,7 @@ def test_precision_streaming_and_cache_reuse(precision, tmp_path, require_rust, 
 
 
 @pytest.mark.parametrize("damage", ["model", "manifest", "missing_manifest"])
-def test_incomplete_or_corrupt_cache_is_regenerated(damage, tmp_path, require_rust):
+def test_incomplete_or_corrupt_cache_is_regenerated(damage, tmp_path, require_akiki):
     with VAD(model_precision=ModelPrecision.INT8, cache_dir=tmp_path) as detector:
         path = detector._backend.model_path
     original = path.read_bytes()
@@ -82,7 +82,7 @@ def test_incomplete_or_corrupt_cache_is_regenerated(damage, tmp_path, require_ru
     assert path.read_bytes() == original
 
 
-def test_concurrent_first_use_produces_one_valid_variant(tmp_path, require_rust):
+def test_concurrent_first_use_produces_one_valid_variant(tmp_path, require_akiki):
     def run(_):
         with VAD(model_precision=ModelPrecision.INT4, cache_dir=tmp_path) as detector:
             return detector._backend.model_path, detector.push(np.ones(256) * 0.01)
@@ -96,7 +96,7 @@ def test_concurrent_first_use_produces_one_valid_variant(tmp_path, require_rust)
     assert not list(tmp_path.rglob(".tmp-*"))
 
 
-def test_converter_revision_invalidates_cache(tmp_path, require_rust, monkeypatch):
+def test_converter_revision_invalidates_cache(tmp_path, require_akiki, monkeypatch):
     with VAD(model_precision=ModelPrecision.BF16, cache_dir=tmp_path) as detector:
         first = detector._backend.model_path
     monkeypatch.setattr(quant, "CONVERTER_VERSION", quant.CONVERTER_VERSION + 1)
@@ -106,7 +106,7 @@ def test_converter_revision_invalidates_cache(tmp_path, require_rust, monkeypatc
     assert first.read_bytes() == second.read_bytes()
 
 
-def test_config_hash_invalidates_cache(tmp_path, require_rust):
+def test_config_hash_invalidates_cache(tmp_path, require_akiki):
     import shutil
 
     source = Path(akiki.__file__).parent / "models"
@@ -131,7 +131,7 @@ def test_config_hash_invalidates_cache(tmp_path, require_rust):
     assert first.read_bytes() == second.read_bytes()
 
 
-def test_cache_location_and_write_error_are_actionable(tmp_path, require_rust, monkeypatch):
+def test_cache_location_and_write_error_are_actionable(tmp_path, require_akiki, monkeypatch):
     monkeypatch.setenv("AKIKI_CACHE_DIR", str(tmp_path / "cache"))
     with VAD(model_precision=ModelPrecision.FP16) as detector:
         assert detector._backend.model_path.is_relative_to(tmp_path / "cache")
@@ -142,7 +142,7 @@ def test_cache_location_and_write_error_are_actionable(tmp_path, require_rust, m
 
 
 def test_precision_never_silently_falls_back_to_fp32(tmp_path):
-    with pytest.raises(RuntimeError, match="requires a compatible Rust engine"):
+    with pytest.raises(RuntimeError, match="requires a compatible Akiki engine"):
         VAD(
             model_precision=ModelPrecision.INT8,
             library_path=tmp_path / "missing.so",
@@ -247,7 +247,7 @@ def test_fp16_overflow_rejected():
 
 @pytest.mark.parametrize("precision", [None, "fp32", "int8", "bf16"])
 def test_cli_uses_default_or_requested_precision(
-    precision, tmp_path, require_rust, monkeypatch, capsys
+    precision, tmp_path, require_akiki, monkeypatch, capsys
 ):
     import soundfile as sf
 

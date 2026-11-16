@@ -4,12 +4,57 @@ import pytest
 from akiki import VAD, Engine, FFTPrecision, ModelPrecision
 
 
+def test_primary_engine_uses_the_akiki_name():
+    assert Engine.AKIKI.value == "akiki"
+    assert str(Engine.AKIKI) == "akiki"
+    assert Engine("akiki") is Engine.AKIKI
+
+
+@pytest.mark.parametrize(
+    "available,expected_order",
+    [
+        (Engine.AKIKI, [Engine.AKIKI]),
+        (Engine.ONNX, [Engine.AKIKI, Engine.ONNX]),
+        (Engine.PYTORCH, [Engine.AKIKI, Engine.ONNX, Engine.PYTORCH]),
+    ],
+)
+def test_auto_tries_akiki_before_compatibility_fallbacks(
+    monkeypatch, tmp_path, available, expected_order
+):
+    from akiki import _engines
+
+    attempts = []
+    selected_backend = object()
+
+    def backend_for(choice):
+        def load(*args, **kwargs):
+            attempts.append(choice)
+            if choice is not available:
+                raise _engines.EngineUnavailable(f"{choice.value} is unavailable")
+            return selected_backend
+
+        return load
+
+    for choice, name in (
+        (Engine.AKIKI, "AkikiBackend"),
+        (Engine.ONNX, "OnnxBackend"),
+        (Engine.PYTORCH, "PytorchBackend"),
+    ):
+        monkeypatch.setattr(_engines, name, backend_for(choice))
+
+    backend, selected, errors = _engines.load_engine(tmp_path / "model.onnx", {}, Engine.AUTO, None)
+    assert selected is available
+    assert backend is selected_backend
+    assert attempts == expected_order
+    assert list(errors) == expected_order[:-1]
+
+
 @pytest.fixture(params=list(Engine))
 def engine(request):
     if request.param in (Engine.ONNX, Engine.PYTORCH):
         pytest.importorskip("onnxruntime" if request.param is Engine.ONNX else "torch")
-    if request.param is Engine.RUST:
-        request.getfixturevalue("require_rust")
+    if request.param is Engine.AKIKI:
+        request.getfixturevalue("require_akiki")
     return request.param
 
 
@@ -111,9 +156,9 @@ def test_auto_falls_back_for_missing_or_incompatible_library(tmp_path):
         with VAD(library_path=path) as detector:
             assert detector.engine is Engine.ONNX
             assert detector.model_precision is ModelPrecision.FP32
-            assert Engine.RUST in detector.engine_errors
-        with pytest.raises(RuntimeError, match="No compatible Rust engine"):
-            VAD(engine=Engine.RUST, library_path=path)
+            assert Engine.AKIKI in detector.engine_errors
+        with pytest.raises(RuntimeError, match="No compatible Akiki engine"):
+            VAD(engine=Engine.AKIKI, library_path=path)
 
 
 def test_auto_falls_back_to_pytorch(monkeypatch, tmp_path):
@@ -124,7 +169,7 @@ def test_auto_falls_back_to_pytorch(monkeypatch, tmp_path):
     with VAD(library_path=tmp_path / "missing.so") as detector:
         assert detector.engine is Engine.PYTORCH
         assert detector.model_precision is ModelPrecision.FP32
-        assert set(detector.engine_errors) == {Engine.RUST, Engine.ONNX}
+        assert set(detector.engine_errors) == {Engine.AKIKI, Engine.ONNX}
         assert len(detector.push(np.zeros(256))) == 1
 
 
@@ -133,7 +178,7 @@ def test_missing_all_engines_has_actionable_error(monkeypatch, tmp_path):
 
     monkeypatch.setitem(sys.modules, "onnxruntime", None)
     monkeypatch.setitem(sys.modules, "torch", None)
-    with pytest.raises(RuntimeError, match=r"rust:.*onnx:.*pytorch:") as error:
+    with pytest.raises(RuntimeError, match=r"akiki:.*onnx:.*pytorch:") as error:
         VAD(library_path=tmp_path / "missing.so")
     assert "pip install 'akiki[onnx]'" in str(error.value)
     assert "pip install 'akiki[pytorch]'" in str(error.value)
@@ -184,17 +229,17 @@ def test_corrupt_native_model_is_not_hidden_by_fallback(tmp_path, precision):
         )
 
 
-@pytest.mark.parametrize("engine", ["auto", "rust", "onnx", "pytorch", "unknown", None, 1, []])
+@pytest.mark.parametrize("engine", ["auto", "akiki", "onnx", "pytorch", "unknown", None, 1, []])
 def test_non_enum_engine_is_rejected(engine):
     with pytest.raises(TypeError, match="engine must be an Engine member"):
         VAD(engine=engine)
 
 
-def test_rust_does_not_import_alternate_runtimes(require_rust, monkeypatch):
+def test_akiki_does_not_import_alternate_runtimes(require_akiki, monkeypatch):
     import sys
 
     monkeypatch.setitem(sys.modules, "onnxruntime", None)
     monkeypatch.setitem(sys.modules, "torch", None)
     with VAD() as detector:
-        assert detector.engine is Engine.RUST
+        assert detector.engine is Engine.AKIKI
         assert len(detector.push(np.zeros(256))) == 1

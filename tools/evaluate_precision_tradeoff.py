@@ -91,7 +91,9 @@ def benchmark(args):
     for round_index in range(3):
         modes = MODES[round_index:] + MODES[:round_index]
         for mode in modes:
-            cases = ("rust_ffi", "rust_push") if round_index % 2 == 0 else ("rust_push", "rust_ffi")
+            cases = (
+                ("akiki_ffi", "akiki_push") if round_index % 2 == 0 else ("akiki_push", "akiki_ffi")
+            )
             for case in cases:
                 command = [
                     sys.executable,
@@ -123,7 +125,7 @@ def benchmark(args):
     summary = {}
     for mode in MODES:
         summary[mode.value] = {}
-        for case in ("rust_ffi", "rust_push"):
+        for case in ("akiki_ffi", "akiki_push"):
             group = [r for r in runs if r["model_precision"] == mode.value and r["case"] == case]
             summary[mode.value][case] = dict(
                 median_us=statistics.median(r["median_us"] for r in group),
@@ -208,7 +210,7 @@ def evaluate(args, suite, vads):
         )
     assert offset == len(reference["labels"])
     predictions = {mode: np.concatenate(values) for mode, values in parts.items()}
-    # Compare the actual Rust FP32 computation with the frozen original model.
+    # Compare the actual Akiki FP32 computation with the frozen original model.
     fp32_difference = float(np.max(np.abs(predictions[ModelPrecision.FP32] - old_fp32)))
     np.testing.assert_allclose(predictions[ModelPrecision.FP32], old_fp32, rtol=0, atol=2e-4)
     metrics = {}
@@ -262,7 +264,7 @@ def main():
     os.sched_setaffinity(0, {args.cpu})
     vads = {
         mode: VAD(
-            engine=Engine.RUST,
+            engine=Engine.AKIKI,
             model_precision=mode,
             fft_precision=FFTPrecision.FP32,
             cache_dir=args.output / "cache",
@@ -328,8 +330,8 @@ def main():
                 dict(
                     precision=mode.value,
                     fft_precision=FFTPrecision.FP32.value,
-                    native_us=latency["summary"][mode.value]["rust_ffi"]["median_us"],
-                    python_push_us=latency["summary"][mode.value]["rust_push"]["median_us"],
+                    native_us=latency["summary"][mode.value]["akiki_ffi"]["median_us"],
+                    python_push_us=latency["summary"][mode.value]["akiki_push"]["median_us"],
                     ten_ap_pct=evaluations["ten"]["models"][mode.value]["average_precision"] * 100,
                     voxconverse_ap_pct=evaluations["voxconverse"]["models"][mode.value][
                         "average_precision"

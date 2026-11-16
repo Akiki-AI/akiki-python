@@ -76,7 +76,7 @@ def tradeoff(folder, data):
         metrics = data["evaluations"][suite]
         aps = np.asarray([metrics["models"][mode]["average_precision"] * 100 for mode in MODES])
         span = max(float(np.ptp(aps)), 0.04)
-        for col, case in enumerate(("rust_ffi", "rust_push")):
+        for col, case in enumerate(("akiki_ffi", "akiki_push")):
             ax = axes[row, col]
             style(ax)
             ax.set_ylim(float(aps.min()) - 0.28 * span, float(aps.max()) + 0.38 * span)
@@ -182,7 +182,7 @@ def curves(folder, data):
     fig.text(
         0.075,
         0.9,
-        f"Akiki {data['package_version']}  ·  Rust inference  ·  FP32 FFT  ·  High-recall region",
+        f"Akiki {data['package_version']}  ·  Akiki inference  ·  FP32 FFT  ·  High-recall region",
         color="#475569",
         fontsize=11,
     )

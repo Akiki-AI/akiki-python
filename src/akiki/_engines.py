@@ -17,10 +17,14 @@ from ._precision import ModelPrecision
 
 
 class Engine(Enum):
-    """VAD inference engine, or automatic selection in fallback order."""
+    """VAD engine choice, with Akiki as the primary engine.
+
+    ``AUTO`` tries ``AKIKI`` first. It then tries the ``ONNX`` and ``PYTORCH``
+    compatibility fallbacks. An explicit choice uses only that engine.
+    """
 
     AUTO = "auto"
-    RUST = "rust"
+    AKIKI = "akiki"
     ONNX = "onnx"
     PYTORCH = "pytorch"
 
@@ -163,7 +167,7 @@ def library_candidates(library_path=None, stem="akiki_vad_engine", variable="AKI
             yield target / profile / name
 
 
-class RustBackend(Backend):
+class AkikiBackend(Backend):
     def __init__(
         self,
         path,
@@ -174,13 +178,13 @@ class RustBackend(Backend):
     ):
         folder = path.with_name(path.stem + "-native")
         if not (folder / "export.json").is_file():
-            raise EngineUnavailable(f"Local Rust model directory is missing: {folder}")
+            raise EngineUnavailable(f"Local Akiki model directory is missing: {folder}")
         receipt = json.loads((folder / "export.json").read_text())
         verify_file(folder / "config.json", receipt["config_sha256"])
         verify_file(folder / "model.safetensors", receipt["model_safetensors_sha256"])
         config = json.loads((folder / "config.json").read_text())
         if config.get("source_model_id", config.get("model_id")) != metadata.get("model_id"):
-            raise ValueError("Rust model identity differs from the requested model")
+            raise ValueError("Akiki model identity differs from the requested model")
         if config.get("torch_dtype", "float32") != "float32":
             raise ValueError("Precision selection requires original FP32 source weights")
         spec = metadata["spec"]
@@ -204,7 +208,7 @@ class RustBackend(Backend):
                 def validate_source():
                     original = lib.akiki_vad_create(str(folder.resolve()).encode("utf-8"))
                     if not original:
-                        raise EngineUnavailable("Rust engine cannot load the original FP32 model")
+                        raise EngineUnavailable("Akiki engine cannot load the original FP32 model")
                     lib.akiki_vad_free(original)
 
                 try:
@@ -234,7 +238,7 @@ class RustBackend(Backend):
             return
         reason = "; ".join(failures) or "no local shared library found"
         raise EngineUnavailable(
-            f"No compatible Rust engine: {reason}. Set AKIKI_VAD_LIBRARY to a local library"
+            f"No compatible Akiki engine: {reason}. Set AKIKI_VAD_LIBRARY to a local library"
         )
 
     @staticmethod
@@ -264,7 +268,7 @@ class RustBackend(Backend):
         probability = self.lib.akiki_vad_chunk_len(self.handle, chunk.ctypes.data, len(chunk))
         hidden = np.empty_like(state)
         if self.lib.akiki_vad_state_len(self.handle, hidden.ctypes.data, self.hidden):
-            raise RuntimeError("Rust engine could not return its hidden state")
+            raise RuntimeError("Akiki engine could not return its hidden state")
         return probability, hidden
 
     def close(self):
@@ -281,13 +285,13 @@ def load_engine(
     cache_dir=None,
 ) -> tuple[Backend, Engine, dict[Engine, str]]:
     errors: dict[Engine, str] = {}
-    choices = (Engine.RUST, Engine.ONNX, Engine.PYTORCH) if engine is Engine.AUTO else (engine,)
+    choices = (Engine.AKIKI, Engine.ONNX, Engine.PYTORCH) if engine is Engine.AUTO else (engine,)
     if model_precision not in (None, ModelPrecision.FP32):
-        choices = (Engine.RUST,)
+        choices = (Engine.AKIKI,)
     for name in choices:
         try:
-            if name is Engine.RUST:
-                backend = RustBackend(
+            if name is Engine.AKIKI:
+                backend = AkikiBackend(
                     path, metadata, library_path, model_precision or ModelPrecision.INT8, cache_dir
                 )
             elif name is Engine.ONNX:
@@ -298,7 +302,7 @@ def load_engine(
         except EngineUnavailable as error:
             errors[name] = str(error)
     reason = (
-        f"model_precision={model_precision.value!r} requires a compatible Rust engine. "
+        f"model_precision={model_precision.value!r} requires a compatible Akiki engine. "
         if model_precision not in (None, ModelPrecision.FP32)
         else "No usable local VAD engine. "
     )

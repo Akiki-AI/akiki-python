@@ -1,6 +1,6 @@
 """Local specialist classification and MiniLM text inference.
 
-``MiniLM`` loads a local plain checkpoint or Ariadne variant into the Rust
+``MiniLM`` loads a local plain checkpoint or Ariadne variant into the Akiki
 engine. ``encode`` returns an ``Encoding``; ``classify`` returns a
 ``Classification`` with label probabilities. Configure numeric formats with
 this module's ``ModelPrecision`` enum, which is distinct from VAD's enum.
@@ -240,7 +240,7 @@ class ModelPrecision(Enum):
 
 
 class DecisionModel:
-    """Classify text with local specialists through the Rust MiniLM engine.
+    """Classify text with local specialists through the Akiki MiniLM engine.
 
     ``base_model`` accepts a local checkpoint path, a ``BaseModel`` returned by
     ``list_base_models()``, or an unambiguous cached repository name. It defaults
@@ -264,7 +264,7 @@ class DecisionModel:
 
     Construction loads no runtime. Each specialist's native handle is loaded
     on first use and reused until its saved export or the base selection changes.
-    The Rust engine folds its affine into its own embedding table in memory;
+    The Akiki engine folds its affine into its own embedding table in memory;
     separate specialists currently use separate copies of the base. Files stay
     unchanged. Inference calls on one ``DecisionModel`` are serialized.
     Do not change specialist data or the attached set during inference.
@@ -561,7 +561,7 @@ def _load_library(library_path=None):
             "; ARM64 MiniLM support is experimental; use a native ARM64 wheel or local library"
         )
     raise RuntimeError(
-        f"No compatible MiniLM engine: {reason}. "
+        f"No compatible Akiki MiniLM engine: {reason}. "
         "Use a native akiki wheel or set AKIKI_MINILM_LIBRARY to a local library"
     )
 
@@ -610,7 +610,7 @@ class MiniLM:
     are not bundled with the package. Pass the path to a local copy, or
     explicitly fetch a Hugging Face model with ``MiniLM.from_pretrained``.
 
-    Inference runs on the native Rust engine, which is included in Linux
+    Inference runs on the native Akiki engine, which is included in Linux
     x86_64 and ARM64 wheels. ARM64 MiniLM support is experimental. There is no
     ONNX or PyTorch fallback. INT8 projections are the default; see ``MiniLM.__init__`` for all options.
 
@@ -673,7 +673,7 @@ class MiniLM:
         token: str | bool | None = None,
         **model_options,
     ) -> MiniLM:
-        """Fetch a Hugging Face model, then load it into the local Rust engine.
+        """Fetch a Hugging Face model, then load it into the local Akiki engine.
 
         Requires the optional ``akiki[huggingface]`` extra. ``repo_id`` must
         contain a supported plain MiniLM checkpoint or Akiki Ariadne variant;
@@ -752,7 +752,7 @@ class MiniLM:
             that wraps text in exactly two special tokens.
             Passing ``None`` keeps the variant's configured chunk length.
         library_path : str or os.PathLike, optional
-            Path to a specific Rust MiniLM shared library. Overrides
+            Path to a specific Akiki MiniLM shared library. Overrides
             ``AKIKI_MINILM_LIBRARY`` and automatic discovery.
 
         Raises

@@ -25,7 +25,8 @@ def main():
     vad = commands.add_parser(
         "vad",
         help="Detect speech in mono 16 kHz audio",
-        description="Run Akiki VAD locally on mono 16 kHz audio.",
+        description="Run VAD on mono 16 kHz audio with the primary Akiki engine. "
+        "Automatic selection uses ONNX and PyTorch as compatibility fallbacks.",
     )
     vad.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     vad.add_argument("audio", help="Input mono 16 kHz audio file")
@@ -40,15 +41,15 @@ def main():
         type=Engine,
         choices=list(Engine),
         default=Engine.AUTO,
-        help="Inference engine (default: auto)",
+        help="Engine choice (default: auto; Akiki first, then ONNX and PyTorch compatibility fallbacks)",
     )
-    vad.add_argument("--library-path", help="Path to a local Rust VAD shared library")
+    vad.add_argument("--library-path", help="Path to a local Akiki VAD shared library")
     vad.add_argument(
         "--model-precision",
         type=ModelPrecision,
         choices=list(ModelPrecision),
         default=None,
-        help="Model precision (default: INT8 for Rust, FP32 for ONNX/PyTorch)",
+        help="Model precision (default: INT8 for Akiki, FP32 for ONNX/PyTorch)",
     )
     vad.add_argument(
         "--fft-precision",
@@ -99,7 +100,7 @@ def main():
         default=MiniLMPrecision.INT8,
         help="Weight and projection precision (default: int8)",
     )
-    minilm.add_argument("--library-path", help="Path to a local Rust MiniLM shared library")
+    minilm.add_argument("--library-path", help="Path to a local Akiki MiniLM shared library")
     minilm.set_defaults(handler=_run_minilm)
     download = commands.add_parser(
         "download",

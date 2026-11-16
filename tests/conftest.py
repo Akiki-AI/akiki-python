@@ -11,13 +11,13 @@ from akiki import VAD, Engine
 
 
 @pytest.fixture
-def require_rust():
+def require_akiki():
     try:
-        VAD(engine=Engine.RUST).close()
+        VAD(engine=Engine.AKIKI).close()
     except RuntimeError:
-        if os.environ.get("AKIKI_VAD_TEST_RUST") == "1":
+        if os.environ.get("AKIKI_VAD_TEST_NATIVE") == "1":
             raise
-        pytest.skip("No compatible local Rust library")
+        pytest.skip("No compatible local Akiki library")
 
 
 @pytest.fixture(scope="session")
@@ -27,7 +27,7 @@ def require_minilm_library():
     try:
         return _load_library()[1]
     except RuntimeError:
-        if os.environ.get("AKIKI_MINILM_TEST_RUST") == "1":
+        if os.environ.get("AKIKI_MINILM_TEST_NATIVE") == "1":
             raise
         pytest.skip("No compatible local MiniLM library")
 

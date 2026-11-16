@@ -9,7 +9,7 @@ between independent recordings. Incomplete trailing frames are left pending.
 The Python API and CLI can override the decision threshold.
 
 The package also includes a matching PyTorch checkpoint and native safetensors
-export. The source weights are FP32. Rust inference defaults to a locally
+export. The source weights are FP32. The Akiki engine defaults to a locally
 generated INT8 variant; ONNX and PyTorch inference use FP32.
 The recorded evaluation below describes the selected FP32 model.
 

@@ -4,7 +4,7 @@ from enum import Enum
 
 
 class ModelPrecision(Enum):
-    """VAD model precision; reduced precision requires the Rust engine."""
+    """VAD model precision; reduced precision requires the Akiki engine."""
 
     FP32 = "fp32"
     FP16 = "fp16"

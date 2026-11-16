@@ -50,7 +50,7 @@ def test_invalid_options(tmp_path, options):
         "fp8",
         *vad.ModelPrecision,
         vad.FFTPrecision.FP32,
-        vad.Engine.RUST,
+        vad.Engine.AKIKI,
         None,
         1,
         [],

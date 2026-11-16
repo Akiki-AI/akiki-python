@@ -12,6 +12,12 @@ Use short sentences and active voice. Give one instruction per sentence.
 Use consistent technical terms. Keep exact API names and code identifiers.
 Apply this standard when you revise existing text.
 
+Name the primary inference engine the Akiki engine.
+Use `Engine.AKIKI` in Python examples and `--engine akiki` in CLI examples.
+ONNX and PyTorch are VAD compatibility fallbacks.
+`Engine.AUTO` tries Akiki first, then ONNX, then PyTorch.
+Do not use the implementation language as the engine name.
+
 ## Enums and domain types
 
 Use a plain `enum.Enum` whenever a value represents a finite set of meaningful
@@ -80,7 +86,7 @@ pre-commit install
 ```
 
 With uv, use `uv pip install -e '.[onnx]' --group dev` instead of the pip install
-commands. The ONNX extra lets the VAD tests run without a local Rust library.
+commands. The ONNX extra lets the VAD tests run without a local Akiki library.
 Model files stay local; do not download checkpoints for tests.
 
 Apply safe lint fixes and formatting before reviewing a change:

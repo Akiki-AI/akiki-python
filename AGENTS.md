@@ -17,6 +17,14 @@ Follow [the Python style guide](docs/style.md) for code changes.
 - Use consistent technical terms. Preserve exact API names and code identifiers.
 - Apply the same standard when you revise existing documentation.
 
+## Engine terminology
+
+- Name the primary inference engine the Akiki engine.
+- Use `Engine.AKIKI` in Python examples and `--engine akiki` in CLI examples.
+- Describe ONNX and PyTorch as VAD compatibility fallbacks, in that order.
+- Describe `Engine.AUTO` as trying Akiki first, then those compatibility fallbacks.
+- Do not use the implementation language as the Akiki engine's name.
+
 ## Ariadne terminology
 
 - Describe Ariadne as adapting the query's representation so a frozen model can

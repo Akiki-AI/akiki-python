@@ -4,8 +4,9 @@ Use ``VAD`` with successive mono, 16 kHz audio buffers. Each complete frame
 returns a ``SpeechFrame`` with timestamps, a probability, and a speech decision.
 The bundled model processes 256 samples (16 ms) per frame.
 
-``Engine`` selects Rust, ONNX, PyTorch, or automatic fallback. ``ModelPrecision``
-selects the VAD model's numeric format; ``FFTPrecision`` configures its FFT.
+The Akiki engine is the primary engine. ``Engine.AUTO`` tries it first.
+The ONNX and PyTorch engines provide compatibility fallbacks.
+``ModelPrecision`` selects the VAD model's numeric format; ``FFTPrecision`` configures its FFT.
 These enums belong to VAD; MiniLM uses ``akiki.decision.ModelPrecision``.
 
 Examples
@@ -75,10 +76,11 @@ class VAD:
     ``SpeechFrame`` for every 256 samples (16 ms). Custom models use their
     supported ``chunk_samples`` value: 256 or 512 samples.
 
-    Models load locally. ``engine=Engine.AUTO`` tries Rust, ONNX Runtime, then
-    PyTorch. The Rust engine uses INT8 by default; the optional runtimes use
-    FP32. Explicit non-FP32 precision requires Rust. ONNX Runtime and PyTorch
-    can be installed with ``akiki[onnx]`` and ``akiki[pytorch]`` respectively.
+    Models load locally. The Akiki engine is the primary engine.
+    ``engine=Engine.AUTO`` tries it first, then the ONNX and PyTorch compatibility
+    fallbacks. The Akiki engine uses INT8 by default. Compatibility engines use FP32.
+    Explicit non-FP32 precision requires the Akiki engine. Install compatibility
+    runtimes with ``akiki[onnx]`` or ``akiki[pytorch]`` when needed.
     See ``VAD.__init__`` for all constructor options.
 
     Use the detector as a context manager or call ``close()`` when finished.
@@ -87,7 +89,7 @@ class VAD:
     Attributes
     ----------
     engine : Engine
-        Selected inference engine: ``Engine.RUST``, ``Engine.ONNX``, or
+        Selected inference engine: ``Engine.AKIKI``, ``Engine.ONNX``, or
         ``Engine.PYTORCH``.
     engine_errors : dict[Engine, str]
         Reasons engines were unavailable before automatic selection succeeded.
@@ -155,7 +157,7 @@ class VAD:
         model_path : str or pathlib.Path, optional
             Local model path, such as ``"vad.onnx"``. A JSON metadata file with
             the same stem is required. ONNX and PyTorch use matching ``.onnx``
-            and ``.pt`` files; Rust uses the sibling ``<stem>-native/`` directory
+            and ``.pt`` files; Akiki uses the sibling ``<stem>-native/`` directory
             containing ``config.json``, ``model.safetensors``, and ``export.json``.
             If omitted, use the bundled model.
             Custom models must use the full-waveform GRU format. Supported
@@ -166,25 +168,26 @@ class VAD:
             use the threshold in the model's metadata. This changes the boolean
             speech decision, not the returned probability.
         engine : Engine, default=Engine.AUTO
-            Engine to use. Automatic selection tries Rust, ONNX Runtime, then
-            PyTorch. An explicitly selected engine must succeed; it does not
-            fall back. Pass an ``Engine`` member, such as ``Engine.RUST``.
+            Automatic selection tries the primary Akiki engine first.
+            ONNX and PyTorch are compatibility fallbacks, in that order.
+            An explicitly selected engine must succeed; it does not fall back.
+            Pass an ``Engine`` member, such as ``Engine.AKIKI``.
         library_path : str or pathlib.Path, optional
-            Specific local Rust shared library to load. Affects only the Rust
+            Specific local Akiki shared library to load. Affects only the Akiki
             engine. If omitted, use ``AKIKI_VAD_LIBRARY`` or discover a bundled
             or locally built library.
         model_precision : ModelPrecision, optional
             One of ``ModelPrecision.FP32``, ``FP16``, ``BF16``, ``INT8``,
-            ``INT4``, or ``INT8_FP32_INPUT``. If omitted, Rust uses INT8 and
-            ONNX/PyTorch use FP32. Explicit non-FP32 precision requires Rust,
-            including in automatic mode. Reduced-precision Rust weights are
+            ``INT4``, or ``INT8_FP32_INPUT``. If omitted, Akiki uses INT8 and
+            ONNX/PyTorch use FP32. Explicit non-FP32 precision requires Akiki,
+            including in automatic mode. Reduced-precision Akiki weights are
             generated from the verified local FP32 model and reused from the
             cache. ``ModelPrecision.INT8_FP32_INPUT`` uses INT8 weights while
             keeping the first projection's input in FP32.
         fft_precision : FFTPrecision, default=FFTPrecision.FP32
             FFT precision. Only ``FFTPrecision.FP32`` is supported.
         cache_dir : str or pathlib.Path, optional
-            Directory for generated Rust model variants. If omitted, use
+            Directory for generated Akiki model variants. If omitted, use
             ``AKIKI_CACHE_DIR`` or the platform's user cache directory. Original
             model weights are preserved. FP32 inference needs no conversion.
 
@@ -204,16 +207,16 @@ class VAD:
         from ._engines import load_engine
 
         if not isinstance(engine, Engine):
-            raise TypeError("engine must be an Engine member, such as Engine.AUTO or Engine.RUST")
+            raise TypeError("engine must be an Engine member, such as Engine.AUTO or Engine.AKIKI")
         if model_precision is not None and not isinstance(model_precision, ModelPrecision):
             raise TypeError("model_precision must be a ModelPrecision member or None")
         if not isinstance(fft_precision, FFTPrecision):
             raise TypeError("fft_precision must be an FFTPrecision member")
         if model_precision not in (None, ModelPrecision.FP32) and engine not in (
             Engine.AUTO,
-            Engine.RUST,
+            Engine.AKIKI,
         ):
-            raise ValueError("Non-FP32 model_precision requires Engine.RUST or Engine.AUTO")
+            raise ValueError("Non-FP32 model_precision requires Engine.AKIKI or Engine.AUTO")
         self.fft_precision = fft_precision
         path = (
             Path(model_path)
@@ -240,7 +243,7 @@ class VAD:
             path, metadata, engine, library_path, model_precision, cache_dir
         )
         self.model_precision = model_precision or (
-            ModelPrecision.INT8 if self.engine is Engine.RUST else ModelPrecision.FP32
+            ModelPrecision.INT8 if self.engine is Engine.AKIKI else ModelPrecision.FP32
         )
         if self.engine is Engine.ONNX:
             self.session = self._backend.session

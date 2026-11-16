@@ -1,4 +1,4 @@
-"""Build both local Rust engines offline, without changing the Rust checkout."""
+"""Build both local Akiki engines offline, without changing the engine checkout."""
 
 import argparse
 import os
@@ -90,7 +90,7 @@ def main():
         )
         library = output / "release" / name
         if not library.is_file():
-            parser.error(f"Rust build did not produce {library}")
+            parser.error(f"Engine build did not produce {library}")
         print(library)
 
 

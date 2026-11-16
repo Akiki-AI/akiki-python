@@ -58,7 +58,7 @@ without training dependencies. Install `akiki-training-lab` separately for
 Use an existing local Rust toolchain, Cargo cache and `akiki-inference` checkout.
 The x86_64 wheel includes VAD and MiniLM. Starting with 0.1.4, the ARM64 wheel
 also includes both engines. ARM64 MiniLM support is experimental. The existing
-pinned Rust revision is used for both architectures.
+pinned engine revision is used for both architectures.
 
 ```bash
 python3 tools/build_native.py --inference-dir "$AKIKI_INFERENCE_DIR"
@@ -76,7 +76,7 @@ python3 verify_dist.py --all-wheels --require-native
 These commands use cached build tools and dependencies. Models must come from
 the existing local package assets; never download model artifacts as part of
 a build. The portable wheel and source archive include the same model assets.
-The native wheel adds the compiled Rust VAD and MiniLM libraries and is
+The native wheel adds the compiled Akiki VAD and MiniLM libraries and is
 preferred by pip and uv on compatible hosts. `AKIKI_NATIVE_LIBRARY` lists the
 libraries to bundle, separated by `:` (`;` on Windows); `verify_dist.py`
 requires both on x86_64 and ARM64. Linux wheel architecture is
@@ -104,7 +104,7 @@ build helper selects both VAD and MiniLM on ARM64. For cross-compilation, it als
 `.cache/native-target/aarch64-unknown-linux-gnu/release/`.
 
 ARM64 INT8 projections use the pinned KleidiAI kernel subset through the shared
-Rust layer/kernel crates. Release builds keep the baseline ARM64 target and
+native layer/kernel crates. Release builds keep the baseline ARM64 target and
 select Neon DotProd at runtime; older CPUs and other precisions retain portable
 execution. The VAD backend was measured and checked bitwise on a physical Pi 5. ARM64
 MiniLM is experimental; emulation checks establish correctness, not hardware
@@ -126,8 +126,9 @@ without real weights. For the real-model tests, set
 `AKIKI_MINILM_MODEL` to a local checkpoint or Ariadne variant folder. A Clover
 release's recorded test predictions are checked automatically. Set
 `AKIKI_MINILM_REFERENCES` to PyTorch reference JSONL for that model, in the
-format of the engine's local-model tests, to check embeddings and logits. Other hosts must install an optional runtime using
-`akiki[onnx]` or `akiki[pytorch]`. The base package requires neither runtime;
+format of the engine's local-model tests, to check embeddings and logits.
+For VAD compatibility without the Akiki engine, install `akiki[onnx]` or `akiki[pytorch]`.
+MiniLM still requires the Akiki engine. The base package requires neither compatibility runtime;
 verify that the extras remain independent in every release artifact.
 Run the training tests with the tested companion installed as well.
 Read the skipped-test summary; native release jobs do not install the training
@@ -142,13 +143,13 @@ target platforms before adding those wheels to `dist/`.
 
 Validate the Markdown and metadata with `twine check` for every new artifact.
 Test a clean install with both portable and platform wheels available and
-confirm that `VAD().engine is Engine.RUST`, loading the installed library
+confirm that `VAD().engine is Engine.AKIKI`, loading the installed library
 (`Engine` is exported from `akiki`).
 Confirm that `VAD().model_precision is ModelPrecision.INT8` and
 `VAD().fft_precision is FFTPrecision.FP32` (both enums are exported from `akiki.vad`),
 and that `akiki.decision._load_library()` loads the installed MiniLM
-library. When no precision is specified, optional ONNX and PyTorch engines use
-FP32; an explicit non-FP32 request must require Rust.
+library. When no precision is specified, ONNX and PyTorch compatibility engines use
+FP32; an explicit non-FP32 request must require the Akiki engine.
 
 ## Publish from GitHub Actions
 
@@ -197,7 +198,7 @@ public key and update the secret before deleting the old deploy key.
 The x86_64 workflow targets glibc 2.34 and ARM64 targets glibc 2.28. Auditwheel must verify those floors;
 a build that needs newer libc symbols fails rather than publishing a renamed
 wheel. The engine's self-contained safetensors and configuration tests run in
-CI; legacy Rust tests that require external `.akv` fixtures are not part of
+CI; legacy engine tests that require external `.akv` fixtures are not part of
 this workflow. The Python tests use the exact bundled release models.
 
 ## Publish from a local shell
