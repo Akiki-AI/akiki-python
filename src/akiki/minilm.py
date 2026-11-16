@@ -1,7 +1,8 @@
 """Compatibility imports for the text inference API in ``akiki.decision``.
 
-Use ``akiki.decision`` for new code. These imports preserve the identity of
-the existing MiniLM class, result types, and precision enum.
+Use ``akiki.decision`` for new code. Both modules expose the same ``MiniLM``,
+``Encoding``, ``Classification``, and current text ``ModelPrecision`` objects.
+Older precision strings must be replaced with text precision enum members.
 """
 
 from .decision import Classification as Classification

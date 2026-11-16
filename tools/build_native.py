@@ -1,4 +1,4 @@
-"""Build the local Rust crate offline, without changing the Rust checkout."""
+"""Build both local Rust engines offline, without changing the Rust checkout."""
 
 import argparse
 import os

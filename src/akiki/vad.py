@@ -73,7 +73,7 @@ class VAD:
     frame for one stream. Feed successive buffers to ``push()``; call
     ``reset()`` before an independent recording. The bundled model emits a
     ``SpeechFrame`` for every 256 samples (16 ms). Custom models use their
-    own ``chunk_samples`` value.
+    supported ``chunk_samples`` value: 256 or 512 samples.
 
     Models load locally. ``engine=Engine.AUTO`` tries Rust, ONNX Runtime, then
     PyTorch. The Rust engine uses INT8 by default; the optional runtimes use
@@ -120,6 +120,8 @@ class VAD:
     -----
     Treat ``pending``, ``context``, and ``state`` as read-only stream state.
     Use a separate instance for each independent audio stream.
+    Calls on one detector are not protected by a lock. Do not call ``push``,
+    ``reset``, or ``close`` concurrently on the same instance.
 
     Examples
     --------
@@ -156,6 +158,9 @@ class VAD:
             and ``.pt`` files; Rust uses the sibling ``<stem>-native/`` directory
             containing ``config.json``, ``model.safetensors``, and ``export.json``.
             If omitted, use the bundled model.
+            Custom models must use the full-waveform GRU format. Supported
+            ``(chunk_samples, context_samples)`` pairs are ``(256, 320)`` and
+            ``(512, 64)``. Custom PyTorch metadata also requires ``pytorch_sha256``.
         threshold : float, optional
             Speech decision threshold between 0 and 1 inclusive. If omitted,
             use the threshold in the model's metadata. This changes the boolean

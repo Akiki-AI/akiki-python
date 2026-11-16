@@ -27,6 +27,10 @@ class AffineLayer:
     For an input embedding width of ``d``, ``weight`` has shape ``(d, d)``
     and ``bias`` has shape ``(d,)``. These arrays represent the transform
     ``weight @ token_embedding + bias``.
+
+    Constructing this value does not train, validate, or save its arrays.
+    Assignment to ``Specialist.affine_layers`` checks their shapes and requires
+    finite floating-point NumPy arrays. The saved entry contains no classification head.
     """
 
     weight: np.ndarray

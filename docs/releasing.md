@@ -10,10 +10,12 @@ the code has passed human review.
 When the RC is ready, create `release-0.2.0` from the tested RC commit.
 Set the release version on that branch before you build the release artifacts.
 Creating or pushing these branches does not publish a package to PyPI.
+The branch name does not set the package version. Read the current value with
+`python3 verify_dist.py --version`.
 
 Update the version in `pyproject.toml`, `src/akiki/__init__.py`, the version
 assertion in `tests/test_vad.py`, and the package version in
-`src/akiki/models/release.json` and `MODEL_CARD.md`. Preserve the model identity
+`src/akiki/models/release.json` and `src/akiki/models/MODEL_CARD.md`. Preserve the model identity
 and weight checksums unless deliberately releasing a different model.
 
 PyPI takes a release's description from its first upload. A description change
@@ -116,7 +118,8 @@ wheels, with ARM64 MiniLM support considered experimental.
 MiniLM weights are never bundled. Users pass a local model path to
 `akiki.MiniLM`, or explicitly fetch a compatible checkpoint with
 `MiniLM.from_pretrained()` or `akiki download` using the optional
-`akiki[huggingface]` extra. Release builds and tests must remain offline;
+`akiki[huggingface]` extra. Model loading during release builds and tests must
+remain offline. CI can fetch pinned source and build dependencies.
 Hub tests use a fake download boundary and locally generated checkpoints.
 The test suite writes tiny random checkpoints and adapters to test the binding
 without real weights. For the real-model tests, set
@@ -126,6 +129,9 @@ release's recorded test predictions are checked automatically. Set
 format of the engine's local-model tests, to check embeddings and logits. Other hosts must install an optional runtime using
 `akiki[onnx]` or `akiki[pytorch]`. The base package requires neither runtime;
 verify that the extras remain independent in every release artifact.
+Run the training tests with the tested companion installed as well.
+Read the skipped-test summary; native release jobs do not install the training
+companion. Their default test run can skip the optional training checks.
 
 The Linux platform floor above was verified with auditwheel for the current
 library. It requires x86_64 and glibc 2.34 or newer. Auditwheel must succeed;
@@ -174,8 +180,8 @@ blank. Only the publishing job has `id-token: write`; no PyPI token is stored.
 
 The native source is pinned by `AKIKI_INFERENCE_REV` in the workflow. Update
 that commit deliberately when changing the engine. It must be reachable on
-GitHub, preferably on `main`, and its MiniLM C ABI (`src/ffi.rs` in
-`akiki-minilm-engine`) must match `src/akiki/decision.py`. Both repositories remain
+GitHub and have passed the required engine review. Its MiniLM C ABI
+(`crates/akiki-minilm-engine/src/ffi.rs`) must match `src/akiki/decision.py`. Both repositories remain
 private. Source checkout uses a dedicated read-only SSH deploy key:
 
 1. Enable deploy keys in the organization's settings if they are disabled.

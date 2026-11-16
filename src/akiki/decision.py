@@ -75,6 +75,11 @@ class Specialist:
     by identity so editing their contents preserves membership in a model's
     ``Specialists`` set.
 
+    Before training, declare at least two nonempty strings in ``intents``.
+    Map each example text to one declared intent in ``examples``.
+    Every intent needs training examples. Automatic validation splits need at
+    least two independent examples per intent. Both collections remain mutable.
+
     ``affine_layers`` is a persistent local mapping keyed by ``BaseModel``.
     Assigning an ``AffineLayer`` saves it atomically; lookups load saved arrays
     without training. Equivalent specialists reuse the cache across sessions.
@@ -83,7 +88,13 @@ class Specialist:
 
     ``cache_dir`` chooses the local affine cache directory. By default, use
     ``affines/`` under ``AKIKI_CACHE_DIR`` or the platform's Akiki cache.
-    Constructing a specialist does not create cache directories or load layers.
+    With no initial layers, construction does not write files or load layers.
+    Entries supplied through ``affine_layers`` are saved during construction.
+    The mapping stores only input affines. ``DecisionModel`` inference requires
+    a complete training export with the separate classification head.
+
+    Cache identity includes the base path and dimensions, not a weight checksum.
+    Keep base checkpoint files unchanged. Use separate paths for new revisions.
     """
 
     intents: set[str] = field(default_factory=set)
@@ -108,12 +119,46 @@ class Specialist:
         resume_from: TrainedSpecialist | str | Path | None = None,
         on_epoch=None,
     ) -> TrainedSpecialist:
-        """Reuse a saved fit or train through the optional ``akiki-training`` backend.
+        """Reuse a saved fit or train through the optional companion package.
 
-        ``continue_training=True`` warm-starts saved affine/head parameters
-        with a fresh optimizer and preserves the original validation split.
-        Pass ``resume_from`` for an earlier artifact when changing examples
-        across sessions. No model assets are downloaded.
+        Parameters
+        ----------
+        base_model : str, pathlib.Path, or BaseModel
+            Existing local checkpoint path, descriptor, or unambiguous cached
+            repository name. Supported training families depend on the companion.
+        config : akiki.training.TrainingConfig, optional
+            Companion training settings. If omitted, use its default configuration.
+        validation_examples : dict[str, str], optional
+            Separate text-to-intent validation data. If omitted, the companion
+            splits ``examples``. Validation loss selects the saved checkpoint.
+        test_examples : dict[str, str], optional
+            Separate test data. It never controls optimization or checkpoint
+            selection. Normalized texts must not overlap between splits.
+        continue_training : bool, default False
+            Start from the saved affine and head with a fresh optimizer.
+            Preserve the original validation texts and labels. Supply explicit
+            holdouts again, including unchanged test data.
+        resume_from : TrainedSpecialist, str, or pathlib.Path, optional
+            Previous result or export directory to continue. This also enables
+            continuation when ``continue_training`` is false. Use it after
+            changing examples across Python sessions. Base and intents must match.
+        on_epoch : callable, optional
+            Callback that receives the companion's completed ``EpochMetrics``.
+
+        Returns
+        -------
+        TrainedSpecialist
+            Complete affine/head export, with labels in sorted intent order.
+            ``cache_hit`` is true when an existing matching result is reused.
+            The export links to the local base checkpoint instead of copying it.
+
+        Notes
+        -----
+        Install ``akiki[training]`` even when requesting a cached fit.
+        Inference and saved-report evaluation do not require that extra.
+        Cache matching includes the data, holdouts, configuration, base identity,
+        and companion version. Invalid saved results raise errors without retraining.
+        No model assets are downloaded. Continuation restores weights, not optimizer state.
         """
         return train_specialist(
             self,
@@ -127,7 +172,17 @@ class Specialist:
         )
 
     def eval(self, base_model: str | Path | BaseModel | None = None) -> SpecialistEvaluation:
-        """Report saved held-out per-intent scores, training gradients, and trends."""
+        """Read validation scores and training diagnostics from a saved report.
+
+        This does not run new predictions or evaluate a new dataset.
+        It needs no training runtime. The specialist's current data must match
+        the saved result. Test scores are not included in this report.
+
+        ``base_model`` selects an existing local base. If omitted, use the latest
+        result from this instance, or the only base with a saved result.
+        Multiple saved bases without an instance result require an explicit choice.
+        Missing, invalid, or changed-data results raise errors without training.
+        """
         return evaluate_specialist(self, base_model)
 
     def suggest_examples(
@@ -138,12 +193,22 @@ class Specialist:
         intents: set[str] | None = None,
         excluded_examples: dict[str, str] | None = None,
     ) -> dict[str, str]:
-        """Propose local-teacher samples for review without changing examples.
+        """Propose samples for review without changing the specialist's examples.
 
         ``teacher`` is an explicit local checkpoint path, ``LocalTeacher``,
-        or an object implementing ``generate_examples``. Generated samples
-        exclude known training/holdout duplicates. Review them, then add
-        accepted entries to ``examples`` before continuing training.
+        or an object implementing ``generate_examples``. The optional training
+        companion is required, including when using a custom teacher.
+        For a server teacher, use ``akiki.teacher.Teacher.review`` instead.
+
+        ``intents`` defaults to all declared intents. ``examples_per_intent``
+        must be positive; filtering can leave fewer proposals. ``excluded_examples``
+        supplies additional reserved texts as mapping keys. Known example and
+        holdout duplicates are removed after normalized text matching.
+
+        The teacher receives a copy of ``examples`` as reference data.
+        Use separate explicit validation and test dictionaries to keep holdouts
+        out of those references. Custom teachers control their own network access.
+        Review returned text-to-intent pairs before adding them to ``examples``.
         """
         return suggest_examples(
             self,
@@ -194,13 +259,16 @@ class DecisionModel:
     and current specialist data. It never starts training. Native MiniLM/BERT
     specialist exports are supported; other families fail explicitly. No
     training package, PyTorch, Transformers, or network access is required.
+    The base needs an unsharded ``model.safetensors`` and ``tokenizer.json``.
+    Discovery can list checkpoints that do not meet these native loading requirements.
 
     Construction loads no runtime. Each specialist's native handle is loaded
     on first use and reused until its saved export or the base selection changes.
     The Rust engine folds its affine into its own embedding table in memory;
     separate specialists currently use separate copies of the base. Files stay
-    unchanged. Calls on one DecisionModel are serialized. Use ``close`` or a
-    context manager to release loaded handles.
+    unchanged. Inference calls on one ``DecisionModel`` are serialized.
+    Do not change specialist data or the attached set during inference.
+    Use ``close`` or a context manager to release loaded handles.
     """
 
     def __init__(
@@ -211,7 +279,21 @@ class DecisionModel:
         model_precision: ModelPrecision = ModelPrecision.INT8,
         library_path: str | Path | None = None,
     ):
-        """Select local files; native options follow ``MiniLM`` defaults."""
+        """Select local files without loading a native model.
+
+        ``base_model`` accepts a checkpoint path, inspected ``BaseModel``,
+        cached repository name, or ``None``. Cache names must identify one revision.
+        Selection validates metadata and file presence, not inference compatibility.
+
+        ``threads`` accepts an integer from 1 to 256. If omitted, use up to four
+        available CPUs when loading each specialist. ``model_precision`` requires
+        this module's enum and defaults to ``ModelPrecision.INT8``.
+        ``library_path`` selects an existing native MiniLM shared library.
+        It overrides ``AKIKI_MINILM_LIBRARY`` and automatic library discovery.
+
+        Native loading occurs on the first inference or tokenization call.
+        Use a context manager or ``close()`` to release the loaded models.
+        """
         if not isinstance(model_precision, ModelPrecision):
             raise TypeError("model_precision must be an akiki.decision.ModelPrecision member")
         if threads is not None and (
@@ -232,7 +314,12 @@ class DecisionModel:
 
     @property
     def base_model(self) -> BaseModel | None:
-        """Selected checkpoint descriptor and embedding dimensions, or ``None``."""
+        """Selected checkpoint descriptor, or ``None`` before selection.
+
+        Assignment inspects existing local metadata without loading model weights.
+        Changing or clearing the selection releases this model's native handles.
+        Metadata inspection does not establish training or inference support.
+        """
         return self._base_model
 
     @base_model.setter
@@ -246,7 +333,12 @@ class DecisionModel:
 
     @property
     def Specialists(self) -> set[Specialist]:
-        """This model's mutable set of specialists, initially empty."""
+        """This model's mutable set of specialists, initially empty.
+
+        Assignment copies a set of ``Specialist`` instances. In-place edits act
+        on the attached set. Removed specialists release their native handles
+        on the next inference call. Replacing the set releases unused handles immediately.
+        """
         return self._specialists
 
     @Specialists.setter
@@ -372,17 +464,22 @@ class DecisionModel:
             return {item: self._runtime(item).classify(text) for item in specialists}
 
     def close(self) -> None:
-        """Release all loaded native handles. Repeated calls have no effect."""
+        """Close this decision model and release all loaded native handles.
+
+        Repeated calls have no effect. Create a new ``DecisionModel`` for later inference.
+        """
         with self._lock:
             self._release_runtimes()
             self._closed = True
 
     def __enter__(self) -> DecisionModel:
+        """Return this open decision model for use in a ``with`` block."""
         with self._lock:
             self._check_open()
         return self
 
     def __exit__(self, *exc) -> None:
+        """Close the decision model on block exit and propagate exceptions."""
         self.close()
 
 
@@ -417,7 +514,7 @@ class Encoding:
 
 @dataclass(frozen=True)
 class Classification:
-    """Most probable head output, returned by ``MiniLM.classify``.
+    """Most probable head output from ``MiniLM`` or ``DecisionModel``.
 
     Attributes
     ----------
@@ -517,8 +614,10 @@ class MiniLM:
     x86_64 and ARM64 wheels. ARM64 MiniLM support is experimental. There is no
     ONNX or PyTorch fallback. INT8 projections are the default; see ``MiniLM.__init__`` for all options.
 
-    Use the model as a context manager or call ``close()`` when finished. One
-    instance can be shared between threads; its calls run one at a time.
+    Use the model as a context manager or call ``close()`` when finished.
+    Native calls on one instance are protected by a lock.
+    Multi-text ``embed`` calls process texts separately; other calls can run
+    between texts. Keep the instance open until all worker calls have finished.
 
     Attributes
     ----------
@@ -551,16 +650,15 @@ class MiniLM:
     Compare sentences with a plain checkpoint::
 
         >>> from akiki import MiniLM
-        >>> with MiniLM("all-MiniLM-L6-v2") as model:  # doctest: +SKIP
+        >>> with MiniLM("path/to/local/MiniLM") as model:  # doctest: +SKIP
         ...     vectors = model.embed(["A man is eating food.", "Someone is eating a meal."])
-        >>> round(float(vectors[0] @ vectors[1]), 2)  # doctest: +SKIP
-        0.78
+        ...     print(float(vectors[0] @ vectors[1]))
 
     Classify with an Ariadne variant that has a head::
 
-        >>> with MiniLM("Akiki-MiniLM-L6-v2-clover-intent") as model:  # doctest: +SKIP
-        ...     model.classify("Current user message: Restart my web server.").label
-        'task'
+        >>> with MiniLM("path/to/local/specialist") as model:  # doctest: +SKIP
+        ...     result = model.classify("Current user message: Restart my web server.")
+        ...     print(result.label, result.probabilities[result.index])
     """
 
     @classmethod
@@ -588,11 +686,15 @@ class MiniLM:
 
         Downloads happen only when this method is explicitly called. To load
         from a local path without Hub access, use ``MiniLM(path)`` instead.
+        This method can use the network by default. For cached files only, set
+        ``HF_HUB_OFFLINE=1`` and pass ``local_files_only=True``.
 
         Examples
         --------
+        >>> import os
+        >>> os.environ["HF_HUB_OFFLINE"] = "1"
         >>> with MiniLM.from_pretrained(  # doctest: +SKIP
-        ...     "sentence-transformers/all-MiniLM-L6-v2"
+        ...     "sentence-transformers/all-MiniLM-L6-v2", local_files_only=True
         ... ) as model:
         ...     vector = model.embed("A man is eating food.")
         """
@@ -645,7 +747,10 @@ class MiniLM:
         chunk_tokens : int, optional
             Split text into chunks of at most this many tokens, including two
             special tokens, as Ariadne retrieval models do. Defaults to the
-            variant's ``max_length``; otherwise text is one sequence.
+            variant's integer ``max_length``; otherwise text is one sequence.
+            Must be from 3 to ``max_tokens``. Chunking requires a tokenizer
+            that wraps text in exactly two special tokens.
+            Passing ``None`` keeps the variant's configured chunk length.
         library_path : str or os.PathLike, optional
             Path to a specific Rust MiniLM shared library. Overrides
             ``AKIKI_MINILM_LIBRARY`` and automatic discovery.
@@ -792,6 +897,12 @@ class MiniLM:
         special_tokens : bool, default True
             Whether to add the tokenizer's special tokens, such as ``[CLS]``
             and ``[SEP]``.
+
+        Returns
+        -------
+        list[int]
+            All token IDs, even when their count exceeds ``max_tokens``.
+            The sequence limit is checked during encoding, not tokenization.
         """
         data = _text(text)
         with self._lock:
@@ -815,7 +926,7 @@ class MiniLM:
             Without ``chunk_tokens``, the text exceeds ``max_tokens`` tokens.
             Inputs are never truncated.
         RuntimeError
-            The model has been closed, or the engine failed.
+            The model has been closed, or tokenization failed.
         """
         data = _text(text)
         with self._lock:
@@ -847,13 +958,26 @@ class MiniLM:
             Complete token sequences, each including its special tokens and
             at most ``max_tokens`` long.
         weights : sequence of float
-            One positive weight per chunk, typically its count of text tokens.
+            One positive finite weight per chunk, typically its text-token count.
 
         Returns
         -------
         Encoding
             The normalized weighted mean of the chunks' normalized embeddings,
             and the head applied to it.
+
+        Raises
+        ------
+        ValueError
+            A chunk is empty, too long, or contains invalid token IDs.
+            A weight is missing, nonfinite, or not positive.
+        RuntimeError
+            The model has been closed.
+
+        Notes
+        -----
+        Supply complete chunks. This method adds no special tokens and performs
+        no truncation. It uses the supplied chunks independently of ``chunk_tokens``.
         """
         arrays = [np.asarray(chunk) for chunk in chunks]
         weights = [float(w) for w in weights]
@@ -877,14 +1001,15 @@ class MiniLM:
 
         Parameters
         ----------
-        texts : str or sequence of str
-            One text, or several.
+        texts : str or iterable of str
+            One text, or several. Multiple texts are encoded one at a time.
 
         Returns
         -------
         numpy.ndarray
             Float32 array of shape ``(embedding_size,)`` for one text, or
-            ``(len(texts), embedding_size)`` for several.
+            ``(number_of_texts, embedding_size)`` for several.
+            An empty iterable returns shape ``(0, embedding_size)``.
         """
         if isinstance(texts, str):
             return self.encode(texts).embedding

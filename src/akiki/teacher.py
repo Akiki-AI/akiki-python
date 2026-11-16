@@ -1,8 +1,9 @@
 """Review specialist decisions with a teacher served through Chat Completions.
 
 The teacher proposes supplemental examples; it never edits a specialist or
-starts training. All classification remains local. Only review prompts are
-sent to the supplied server, and no model assets are retrieved.
+starts training. Classification uses the local ``DecisionModel``.
+Input texts, labels, task policy, and reference examples are sent to the
+configured server. No model assets are retrieved.
 """
 
 import json
@@ -35,7 +36,17 @@ class TeacherError(RuntimeError):
 
 @dataclass(frozen=True)
 class DecisionReview:
-    """A local decision, its teacher assessment, and accepted proposals."""
+    """One result from ``Teacher.review``, including filtered proposals.
+
+    ``text`` is the reviewed input; ``decision`` is its local classification.
+    ``verdict`` is the teacher's ``Verdict`` member, not a verified annotation.
+    ``expected_label`` is the proposed label, or ``None`` for an uncertain verdict.
+    ``reason`` is the teacher's explanation.
+
+    ``examples`` maps proposed texts to labels for an incorrect decision.
+    It is empty for correct or uncertain decisions. Filtering does not approve
+    the proposals for training. Review them before changing a specialist.
+    """
 
     text: str
     decision: Classification
@@ -51,7 +62,12 @@ class DecisionReview:
 
 @dataclass(frozen=True)
 class TeachingResult:
-    """Reviews and deduplicated text-to-label proposals for manual acceptance."""
+    """Reviews and distinct text-to-label proposals for manual acceptance.
+
+    ``reviews`` contains one ``DecisionReview`` per input, in input order.
+    ``examples`` combines their filtered proposals. A batch with no retained
+    proposals returns an empty mapping. No specialist data is changed.
+    """
 
     reviews: tuple[DecisionReview, ...]
     examples: dict[str, str]
@@ -61,6 +77,9 @@ class TeachingResult:
 
         Existing files are preserved. Review the proposals before adding
         ``examples`` to a specialist's training data.
+        The parent directory must already exist. Only ``text`` and ``label``
+        are written; verdicts and explanations are not included in this file.
+        File errors are reported as ``OSError`` subclasses, not ``TeacherError``.
         """
         rows = [
             json.dumps({"text": text, "label": label}, ensure_ascii=False) + "\n"
@@ -94,6 +113,27 @@ class Teacher:
     must still contain a JSON object. Requests are synchronous, have a timeout,
     and are never retried automatically. No inference or training dependencies
     beyond Akiki's ordinary imports are required for this HTTP client.
+
+    Parameters
+    ----------
+    base_url : str
+        HTTP(S) API base on your own computer or infrastructure. A server root
+        selects ``/v1``. An existing path is used directly. Credentials, query
+        strings, fragments, and a trailing ``/chat/completions`` are rejected.
+    model : str, optional
+        Served model ID. If omitted, the server must list exactly one model.
+    api_key : str, optional
+        Credential sent only to the configured server. HTTP redirects are rejected.
+    task_description : str, default ""
+        Decision policy supplied with every review and generation request.
+    intent_descriptions : mapping[str, str], optional
+        Descriptions for declared specialist intents. Partial descriptions are allowed.
+    timeout : float, default 60.0
+        Positive finite timeout in seconds for each HTTP request, not the whole batch.
+    max_tokens : int, default 2048
+        Positive output-token limit for each completion.
+    json_mode : bool, default True
+        Request JSON-object response mode. Disabling it still requires valid JSON responses.
     """
 
     def __init__(
@@ -181,6 +221,33 @@ class Teacher:
         proposals in this batch. Matching ignores case, Unicode compatibility
         differences, and repeated whitespace. Known reserved inputs are rejected
         so generation cannot derive training examples from those holdouts.
+
+        ``inputs`` accepts one string or an iterable of nonempty strings.
+        ``examples_per_error`` is a positive upper limit per incorrect decision.
+        Filtering can leave fewer proposals, including none.
+        ``excluded_examples`` contains reserved text strings; mapping values are ignored.
+        Use it for reserved data not present in the specialist's known saved reports.
+        Duplicate detection compares normalized text, not semantic paraphrases.
+
+        The teacher receives the policy, labels, current input, and predicted label.
+        It also receives up to three reference examples per intent, excluding
+        known reserved texts. Construction makes no requests; this method does.
+
+        Returns
+        -------
+        TeachingResult
+            Ordered reviews and filtered proposals. Accept them only after review.
+
+        Raises
+        ------
+        TeacherError
+            A server request fails or a completion has an invalid structure,
+            contradictory labels, or an abnormal finish reason.
+        TypeError
+            The model or specialist has an incorrect type.
+        ValueError
+            Inputs, labels, specialist selection, or reserved-data rules are invalid.
+            Errors from local classification and saved reports also propagate.
         """
         if not isinstance(decision_model, DecisionModel):
             raise TypeError("decision_model must be an akiki.decision.DecisionModel")

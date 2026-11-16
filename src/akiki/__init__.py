@@ -55,11 +55,13 @@ model retrieval utilities live in ``akiki.hub``.
 
 Compatibility
 -------------
-``akiki.minilm`` remains available as a compatibility alias for the decision
-API's class, result types, and precision enum.
-Existing top-level imports of ``SpeechFrame``, ``Engine``, ``ModelPrecision``,
+``akiki.minilm`` remains a compatibility module. It re-exports the decision
+API's class, result types, and current precision enum.
+Existing named top-level imports of ``SpeechFrame``, ``Engine``, ``ModelPrecision``,
 ``FFTPrecision``, ``Encoding``, ``Classification``, and ``download_model`` remain
 available. The top-level precision enums refer to VAD.
+Wildcard imports expose only the primary names in ``__all__``.
+MiniLM requires the separate ``akiki.decision.ModelPrecision`` enum.
 
 Attributes
 ----------

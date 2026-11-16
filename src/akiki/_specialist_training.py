@@ -56,7 +56,18 @@ def _base_key(base: BaseModel) -> str:
 
 @dataclass(frozen=True)
 class TrainedSpecialist:
-    """A complete saved input-affine/head adapter and its training report."""
+    """A saved input-affine/head adapter and its training report.
+
+    ``base_model`` identifies the local frozen checkpoint.
+    ``output_dir`` contains the adapter, labels, reports, and a ``base_model``
+    link. That local checkpoint must remain available for inference or training.
+    ``labels`` gives the sorted intent order used by the classification head.
+    ``cache_hit`` is true when this result was loaded from a matching saved export.
+
+    This object describes a saved result. It does not hold a loaded inference
+    model. Pass its export directory to ``MiniLM`` for direct inference, or use
+    the corresponding ``Specialist`` with ``DecisionModel``.
+    """
 
     base_model: BaseModel
     output_dir: Path
@@ -65,9 +76,15 @@ class TrainedSpecialist:
 
     @property
     def adapter_path(self) -> Path:
+        """Return the path to the saved affine and head in ``adapter.safetensors``."""
         return self.output_dir / "adapter.safetensors"
 
     def eval(self) -> SpecialistEvaluation:
+        """Read validation scores and diagnostics from this result's saved report.
+
+        This loads no model and runs no new predictions. It needs no optional
+        training runtime. Missing or incompatible reports raise an error.
+        """
         return evaluation_from_report(
             _read_json(self.output_dir / "training.json"), self.output_dir
         )

@@ -16,8 +16,14 @@ Python caches imported modules. After editing the companion package, restart
 the notebook kernel or reload the changed companion modules to see new code.
 
 Install ``akiki[training]``, then use ``from akiki import training``. The trainer
-is maintained in the separate akiki-training project; importing its API does
-not load PyTorch or Transformers until training is requested.
+is maintained in the separate akiki-training project. The extra selects its
+``ariadne`` runtime dependencies. Importing the wrapper does not load PyTorch
+or Transformers. Training and local teacher generation load optional runtimes
+when called. Dataset tools and Lab require separate companion packages.
+
+MiniLM/BERT exports in the supported native file layout can run through Akiki's text API.
+Other training families supported by the companion do not automatically gain
+native inference support in this package.
 """
 
 try:

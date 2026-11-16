@@ -1,18 +1,22 @@
 # Akiki
 
-Akiki is a lightweight Python package for streaming voice activity detection.
-It identifies speech in audio and returns a speech probability, a speech/silence
-decision, and timestamps for each 16 ms frame. It can also run local MiniLM text
-models for sentence embeddings and classification; see
-[MiniLM text models](#minilm-text-models).
+Akiki runs streaming voice activity detection and MiniLM text models locally.
+VAD returns a speech probability, a speech/silence decision, and timestamps for
+each 16 ms frame. Text models return sentence embeddings or label probabilities.
+Saved specialists run through the [decision API](#decision-models).
+Training uses an optional companion package. An experimental teacher API can
+request example proposals from a server on your own computer or infrastructure.
 
-The VAD model is included in the package. Processing runs locally, without a model
+The VAD model is included in the package. VAD runs locally, without a model
 download, network connection, or external service. The Rust engine uses INT8
 model inference by default, with an FP32 FFT.
 
 ## Install
 
 Requires Python 3.10 or later.
+
+This README describes the current source tree. For an installed release, use
+the README from its matching version tag. RC features reach PyPI after release.
 
 ```bash
 pip install akiki
@@ -35,7 +39,7 @@ The API has four modules:
 | Module | Main interface | Supporting types |
 | --- | --- | --- |
 | `akiki.vad` | `VAD` for speech detection | `SpeechFrame`, `Engine`, `ModelPrecision`, `FFTPrecision` |
-| `akiki.decision` | `DecisionModel` for base model selection; `MiniLM` for text inference | `BaseModel`, `Specialist`, `AffineLayer`, `list_base_models`, `Encoding`, `Classification`, `ModelPrecision` |
+| `akiki.decision` | `DecisionModel` for specialist inference; `MiniLM` for direct text inference | `BaseModel`, `Specialist`, `AffineLayer`, `TrainedSpecialist`, `SpecialistEvaluation`, `TrainingAdvice`, `list_base_models`, `Encoding`, `Classification`, `ModelPrecision` |
 | `akiki.training` | Optional classifier training | The companion package's public API, including `LocalModel`, `ModelFamily`, and `Trainer` |
 | `akiki.teacher` | Experimental review through a local or self-hosted server | `Teacher`, `Verdict`, `DecisionReview`, `TeachingResult` |
 
@@ -56,7 +60,8 @@ modules remain accessible but are omitted from that list.
 
 The text inference module is named `akiki.decision`. Existing imports from
 `akiki.minilm` remain available for compatibility and use the same classes
-and precision enum.
+and precision enum. Named top-level compatibility imports remain available.
+Wildcard imports expose only `VAD`, `MiniLM`, `vad`, `decision`, and `__version__`.
 
 Akiki accepts mono audio sampled at 16,000 Hz.
 
@@ -87,6 +92,7 @@ import akiki
 help(akiki)  # Overview of vad, decision, training, and teacher
 help(akiki.vad)  # Speech detection, configuration, and result types
 help(akiki.decision)  # Text inference, configuration, and result types
+help(akiki.decision.Specialist.train)  # Training parameters and saved exports
 help(akiki.VAD)  # Configuration, attributes, and streaming example
 help(akiki.VAD.__init__)  # Constructor parameters and defaults
 help(akiki.VAD.push)  # Audio input, buffering, results, and errors
@@ -104,8 +110,11 @@ akiki vad --help
 The command prints one JSON object per complete frame, containing its timestamps,
 speech probability, and speech decision.
 
-VAD options follow the `vad` subcommand. Use `akiki --help` to list available
-commands. The equivalent module invocation is `python -m akiki vad recording.wav`.
+VAD options follow the `vad` subcommand. The `akiki` command has three
+subcommands: `vad`, `minilm`, and `download`. Use `akiki --help` to list them.
+The equivalent module invocation is `python -m akiki vad recording.wav`.
+Specialist management and teacher review use the Python API. The optional
+training command belongs to the separate companion package.
 
 ## Inference engines
 
@@ -124,7 +133,7 @@ Version **0.1.4** also includes the Rust MiniLM engine in the Linux ARM64 wheel.
 **ARM64 MiniLM support is experimental**, including inference with local Ariadne
 adapters. It uses the existing MiniLM API and requires glibc 2.28 or later.
 
-Akiki selects the Rust engine when a compatible native library is available,
+`VAD(engine=Engine.AUTO)` selects Rust when a compatible native library is available,
 then tries ONNX Runtime and PyTorch if they are installed. Both are optional;
 the base package requires neither runtime.
 
@@ -154,7 +163,8 @@ An explicitly selected engine raises an error if it is unavailable. Check
 `vad.engine` to see the active `Engine` member. `vad.engine_errors` maps
 `Engine` members to the reasons they were unavailable during automatic selection.
 
-All engines use the same bundled model and streaming API.
+All VAD engines use the same bundled model and streaming API.
+ONNX and PyTorch alternatives apply to VAD. Native text inference requires Rust.
 
 ## Model precision
 
@@ -265,6 +275,18 @@ Assign `None` to clear the selection. Multiple revisions require an explicit
 path. The selected `base_model` is a descriptor; use `.path` for its checkpoint
 directory. Descriptors can also be passed to filesystem APIs directly.
 Selection validates metadata and required files; it does not load a model.
+Successful selection does not establish compatibility with a training or inference engine.
+
+| Operation | Checkpoint support |
+| --- | --- |
+| `list_base_models()` | Recognized encoder snapshots with complete local files |
+| `DecisionModel.base_model` | Local text checkpoints whose metadata and input dimensions can be inspected |
+| `Specialist.train()` | Training families supported by the installed companion package |
+| `MiniLM` and `DecisionModel` inference | Supported MiniLM/BERT exports with `model.safetensors` and `tokenizer.json` |
+
+Discovery can find other encoder families and sharded checkpoints.
+The native text loader requires one unsharded `model.safetensors` file.
+Qwen specialist inference is not exposed by this Python binding.
 
 Each `DecisionModel` also has a `Specialists` property containing its own empty
 `set[Specialist]`. Each specialist has an `intents: set[str]` and an
@@ -304,13 +326,18 @@ from the classification head. Cache keys include the base-model path and
 embedding dimensions, plus a fingerprint of the specialist's intents and
 examples. Editing those collections selects another namespace; previous trained
 layers stay on disk and become available again if the original data is restored.
+Cache identity uses the base path and embedding dimensions, not a weight checksum.
+Keep checkpoint files unchanged. Use a separate path for each checkpoint revision.
 
 Pass `Specialist(..., cache_dir="path/to/affine-cache")` to choose the location.
 The default is `affines/` under `AKIKI_CACHE_DIR`, or the platform's Akiki user
-cache directory. Constructing a specialist does not write files or load layers.
+cache directory. Construction with no initial layers does not write files or load layers.
+Supplying `affine_layers=` saves those entries during construction.
 Loaded arrays can be edited in memory; assign the layer back to the mapping to
 save changes. Missing entries return `None` through `.get()`. Damaged entries
 raise an error and are preserved instead of being treated as a reason to retrain.
+The affine mapping contains no classification head. Assigning an affine alone
+does not create the complete export required by `DecisionModel`.
 
 Input embedding table dimensions come from safetensors headers when available,
 with a configuration fallback for other weight formats. They are read from the
@@ -328,7 +355,7 @@ Pass `list_base_models(cache_dir="path/to/hub")` to search a specific cache.
 It skips incomplete snapshots and generative models. Discovery and selection
 use local files only and require no optional training or Hugging Face packages.
 
-`Specialist.train()` now calls the existing optional `akiki-training` trainer
+`Specialist.train()` calls the optional `akiki-training` trainer
 and reuses a complete saved adapter when its base, examples, holdouts, and
 training configuration match. The saved artifact retains both the input affine
 and the separate classification head, with the label order and training report:
@@ -352,6 +379,10 @@ trained = specialist.train(model.base_model, config=config)
 report = specialist.eval()
 report  # Displays a per-intent table in a notebook.
 ```
+
+Labels in `TrainedSpecialist.labels` are sorted by intent name.
+Training requires the optional companion even when it reuses a saved result.
+Saved-report evaluation and native inference do not require the companion.
 
 Classify with the saved specialist through the same `akiki-inference` Rust
 MiniLM library used by `MiniLM`. The result includes the predicted `label`, its
@@ -391,7 +422,8 @@ specialist; subsequent calls reuse it. A new saved training run replaces the
 old handle on its next use. Changing the selected base or replacing the
 `Specialists` set releases unused handles; mutations such as `.remove()` are
 noticed on the next inference call. Use a context manager or `close()` to
-release all native resources. Calls on one `DecisionModel` are serialized.
+release all native resources. Inference calls on one `DecisionModel` are serialized.
+Do not change specialist data or its attached set during inference.
 
 The current Rust engine folds each input affine into its own embedding table
 in memory, so different specialists currently load separate base copies. Saved
@@ -401,7 +433,12 @@ metrics. `library_path=` selects an existing native shared library explicitly.
 Linux ARM64 MiniLM support remains experimental. Inputs are passed verbatim and
 are never silently truncated.
 
-`report.per_intent` maps each intent to held-out accuracy, cross entropy,
+`Specialist.eval()` reads the saved validation report. It does not run new
+predictions or evaluate a new dataset. Test scores are not part of this report.
+With several saved base models, pass `base_model=` unless the instance already
+has a selected training result.
+
+`report.per_intent` maps each intent to validation accuracy, cross entropy,
 training support and loss, the selected adapter's input-affine and head
 gradient norms, a recent validation-loss slope, and a `TrainingAdvice` enum.
 Gradients are norms of mean per-intent training cross entropy before clipping;
@@ -418,6 +455,7 @@ must be supplied unchanged. After changing examples across sessions, use
 exports are preserved, and continuation keeps its starting checkpoint if no
 epoch improves validation loss. Complete specialist exports reference the
 local frozen base by symlink instead of copying its weights for every run.
+Keep that base at its original path. These specialist exports depend on it.
 
 An optional local teacher can propose additional samples when an intent's
 validation performance has flattened:
@@ -437,12 +475,17 @@ if weak_intents:
     trained = specialist.train(model.base_model, config=config, continue_training=True)
 ```
 
-Teacher generation requires an explicit existing local checkpoint, uses offline
-loading, and never changes the specialist's examples automatically. Proposed
+`LocalTeacher` requires an explicit existing local checkpoint and uses offline loading.
+Generation never changes the specialist's examples automatically. Proposed
 samples are deduplicated against known examples and holdouts. Use
 `excluded_examples=` to exclude any additional reserved data. A custom local
 teacher can implement `generate_examples(...)` with the same dictionary output.
 Evaluation of a saved result works without loading a training runtime.
+The local-teacher API sends `specialist.examples` as reference data.
+Use separate explicit validation and test dictionaries to keep holdouts out
+of those references. Custom teachers control their own model and network access.
+`Specialist.suggest_examples()` requires the optional training companion,
+including when a custom teacher is supplied.
 
 An experimental server-backed teacher can review the decisions of an attached,
 trained specialist and propose similar examples when it judges a decision to be
@@ -519,7 +562,8 @@ Akiki Ariadne variants that add a small adapter to the frozen encoder, such as
 the Akiki MiniLM-L6-v2 Clover intent classifier.
 
 To train a compatible classifier from labelled examples, use the separate
-`akiki-training` project. Its exports load through the same `MiniLM` API.
+`akiki-training` project. Its compatible MiniLM/BERT exports load through the
+same `MiniLM` API. Other training families need their own inference runtime.
 
 The MiniLM weights are not included in the package. Pass the path to a local
 copy when creating the model:
@@ -529,30 +573,32 @@ from akiki import MiniLM
 
 with MiniLM("path/to/all-MiniLM-L6-v2") as model:
     vectors = model.embed(["A man is eating food.", "Someone is eating a meal."])
-    print(vectors[0] @ vectors[1])  # cosine similarity, about 0.78
+    print(vectors[0] @ vectors[1])  # Cosine similarity.
 ```
 
 Embeddings are float32 NumPy arrays, mean-pooled and L2-normalized, so their dot
-products are cosine similarities. `embed()` accepts one string or a list.
+products are cosine similarities. `embed()` accepts one string or an iterable
+of strings. Multiple texts are encoded one at a time.
 
 Variants with a head classify text in their own input format:
 
 ```python
 with MiniLM("path/to/Akiki-MiniLM-L6-v2-clover-intent") as model:
     result = model.classify("Current user message: Restart my web server.")
-    print(result.label, result.probabilities[result.index])  # task, about 0.92
+    print(result.label, result.probabilities[result.index])
 
     follow_up = model.classify(
         "Conversation context:\n"
         "assistant: Would you like me to check whether last night's backup ran?\n\n"
         "Current user message: yes"
     )
-    print(follow_up.label)  # question
+    print(follow_up.label)
 ```
 
 Each classification has the most probable output's `index` and `label`, the
 `probabilities` of every output, and the raw `logits`. Probabilities are a plain
 softmax, without calibration.
+`label` is `None` when the head has no label names in `model_config.json`.
 
 A model folder is either a checkpoint with `config.json`, `model.safetensors`,
 and `tokenizer.json`, or a variant folder holding that checkpoint in
@@ -561,18 +607,27 @@ and `tokenizer.json`, or a variant folder holding that checkpoint in
 text (`max_length`). Pass `adapter_path` to use an adapter stored elsewhere, or a
 variant's `base_model` folder to use the plain encoder.
 
-Each sequence may contain up to 512 tokens, including special tokens. Longer
-text raises `ValueError` rather than being truncated, unless `chunk_tokens` is
-set. Chunked text is split into sequences of at most that many tokens, and their
-embeddings are combined by a mean weighted by their text tokens. Retrieval
-variants trained this way set `max_length`, so chunking is automatic.
-sentence-transformers truncates all-MiniLM-L6-v2 input after 256 tokens instead,
-so its embeddings of longer text differ.
+The sequence limit is `model.max_tokens`, including special tokens.
+It comes from the loaded checkpoint. Longer text raises `ValueError` unless
+chunking is enabled. Inputs are never silently truncated.
+`chunk_tokens` must be from 3 to `model.max_tokens`. It requires a tokenizer
+with exactly two special tokens. Chunk embeddings are normalized, combined by
+a mean weighted by their text-token counts, then normalized again.
+The classification head is applied to the combined embedding.
+
+A variant's integer `max_length` enables chunking automatically.
+Passing `chunk_tokens=None` retains that setting.
+When comparing embeddings with another toolkit, match its token limit and precision.
 
 For task-specific inputs, such as typed decisions, `tokenize()` and
 `encode_chunks()` give direct control over the chunks and their weights;
-`encode()` returns both the embedding and any head logits. One model can be
-shared between threads; its calls run one at a time.
+`encode()` returns both the embedding and any head logits.
+Native calls on one `MiniLM` instance are protected by a lock.
+An `embed()` call with several texts can be interleaved with other calls
+between texts. Keep the instance open until all worker calls have finished.
+`tokenize()` returns all IDs without padding or truncation, including sequences
+longer than `model.max_tokens`. `encode_chunks()` requires complete token
+sequences and positive finite weights. It adds no special tokens.
 
 MiniLM requires the Rust engine included in Linux x86_64 and ARM64 wheels;
 **ARM64 MiniLM support is experimental**. It has no ONNX or PyTorch alternative.
@@ -615,22 +670,28 @@ embedding otherwise. Add `--embedding` to include the embedding as well.
 
 ### Hugging Face models
 
-Install the optional Hub integration to explicitly download compatible MiniLM
-checkpoints or Akiki Ariadne variants:
+Use the optional Hub integration with compatible MiniLM checkpoints or Ariadne
+variants. The examples below use existing cache files:
 
 ```bash
 pip install 'akiki[huggingface]'
 ```
 
 ```python
+import os
+
 from akiki import MiniLM
 from akiki.hub import download_model
 
-with MiniLM.from_pretrained("sentence-transformers/all-MiniLM-L6-v2") as model:
+os.environ["HF_HUB_OFFLINE"] = "1"
+
+with MiniLM.from_pretrained(
+    "sentence-transformers/all-MiniLM-L6-v2", local_files_only=True
+) as model:
     vector = model.embed("A man is eating food.")
 
-# Fetch a model without loading an inference engine, then use the local path.
-path = download_model("sentence-transformers/all-MiniLM-L6-v2")
+# Find a cached model without loading an inference engine.
+path = download_model("sentence-transformers/all-MiniLM-L6-v2", local_files_only=True)
 with MiniLM(path) as model:
     vector = model.embed("Someone is eating a meal.")
 ```
@@ -650,14 +711,13 @@ The same native engine and platform requirements apply after downloading.
 On the command line:
 
 ```bash
-# Fetch and run a model.
-akiki minilm --repo sentence-transformers/all-MiniLM-L6-v2 "A man is eating food."
+export HF_HUB_OFFLINE=1
 
-# Fetch only, writing into a chosen folder. The command prints its local path.
-akiki download sentence-transformers/all-MiniLM-L6-v2 --local-dir ./models/minilm
-
-# Reuse a previously cached model without network access.
+# Run an existing cached model.
 akiki minilm --repo sentence-transformers/all-MiniLM-L6-v2 --local-files-only "Hello."
+
+# Print the path of an existing cached model without loading it.
+akiki download sentence-transformers/all-MiniLM-L6-v2 --local-files-only
 ```
 
 Downloads use the [Hugging Face Hub cache and revision handling](https://huggingface.co/docs/huggingface_hub/guides/download).
@@ -667,10 +727,18 @@ choose a cache location. `local_files_only=True` or `--local-files-only` require
 an existing local snapshot; missing required files produce an error.
 `HF_HUB_OFFLINE=1` also forces local-only access and is never overridden.
 Ordinary `MiniLM(path)` loading and inference do not contact Hugging Face.
+Without the offline setting or local-only option, explicit Hub calls can use
+the network. `--local-dir` selects a model directory; in offline mode, its
+required checkpoint files must already exist there.
 
 ## Training
 
 The separate `akiki-training` project supplies Ariadne classifier training.
+Ariadne adapts the query's representation so a frozen model can use its existing
+latent capabilities. The input affine is separate from the classification head.
+The general technique applies to general-purpose LLMs and typically trains
+fewer than 1% of the base model's parameters. Supported checkpoints depend on
+the installed implementation; native inference here supports MiniLM/BERT exports.
 Dataset tools and Ariadne Lab have separate companion packages.
 Akiki includes the training API wrapper. Trainer implementations and Lab assets
 stay in the companion packages. Datasets and experiment outputs stay local.

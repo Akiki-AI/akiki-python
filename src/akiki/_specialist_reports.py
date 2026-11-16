@@ -9,6 +9,16 @@ import numpy as np
 
 
 class TrainingAdvice(Enum):
+    """Heuristic next steps based on saved validation scores and loss trends.
+
+    ``CONTINUE_TRAINING`` indicates improving loss or an incomplete trend.
+    ``ADD_EXAMPLES`` indicates a flat or worsening recent validation loss.
+    ``MORE_VALIDATION_DATA`` indicates fewer than three validation examples
+    for an intent, or a missing validation loss.
+    ``SUFFICIENT`` indicates strong measured validation scores.
+    These suggestions do not establish performance on new inputs.
+    """
+
     CONTINUE_TRAINING = "continue_training"
     ADD_EXAMPLES = "add_examples"
     MORE_VALIDATION_DATA = "more_validation_data"
@@ -17,6 +27,23 @@ class TrainingAdvice(Enum):
 
 @dataclass(frozen=True)
 class IntentEvaluation:
+    """Saved validation and training diagnostics for one declared intent.
+
+    ``examples`` counts validation examples; ``training_examples`` counts
+    training examples. ``accuracy`` is the validation fraction classified correctly.
+    ``cross_entropy`` and ``training_cross_entropy`` are mean losses in nats.
+    A metric is ``None`` when the saved report has no corresponding measurement.
+
+    ``affine_gradient_norm`` and ``head_gradient_norm`` describe gradients at
+    the selected checkpoint, before clipping. ``gradient_norm`` combines them
+    by the square root of the sum of their squares. These are gradients of
+    mean per-intent training cross entropy, not validation loss.
+
+    ``loss_slope`` is the fitted change in validation cross entropy per epoch.
+    It uses up to four recent saved epochs. It is ``None`` with fewer than two
+    measured epochs. ``advice`` is a ``TrainingAdvice`` member; ``reason`` explains it.
+    """
+
     intent: str
     examples: int
     training_examples: int
@@ -38,6 +65,16 @@ class SpecialistEvaluation:
     Loss slopes use recent validation epochs. Gradient norms come from the
     gradient of mean per-intent training CE at the selected adapter, before
     clipping. Neither signal guarantees that additional training will help.
+
+    ``per_intent`` maps label names to ``IntentEvaluation`` objects.
+    ``accuracy`` is the overall validation fraction classified correctly.
+    ``cross_entropy`` is overall validation loss in nats; ``examples`` is
+    validation support. No new inference is run to produce this object.
+
+    ``best_epoch`` identifies the checkpoint selected by validation loss.
+    It can be zero when continuation keeps its starting checkpoint.
+    ``epochs`` counts saved epoch entries for this run, not all earlier runs.
+    ``output_dir`` identifies the export containing the report.
     """
 
     per_intent: dict[str, IntentEvaluation]
@@ -50,6 +87,10 @@ class SpecialistEvaluation:
 
     @property
     def intents_needing_examples(self) -> set[str]:
+        """Return intents whose advice is ``TrainingAdvice.ADD_EXAMPLES``.
+
+        Intents needing more validation data are not included in this set.
+        """
         return {
             name
             for name, metric in self.per_intent.items()

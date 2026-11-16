@@ -41,6 +41,8 @@ def download_model(
     Set ``local_files_only=True`` to require an existing local snapshot.
     ``HF_HUB_OFFLINE`` also forces local-only access and is never overridden.
     A partial snapshot missing required files raises ``FileNotFoundError``.
+    With ``local_dir`` in offline mode, its required files must already exist.
+    This function does not select a different checkpoint if files are missing.
 
     ``token`` accepts an access token, ``True`` to require a saved token, or
     ``False`` to disable authentication. The default uses Hugging Face's
@@ -48,6 +50,16 @@ def download_model(
 
     This function may access the network when explicitly called. Ordinary
     ``MiniLM(path)`` construction and inference remain local.
+
+    Examples
+    --------
+    Use an existing cached checkpoint without network access::
+
+        >>> import os
+        >>> os.environ["HF_HUB_OFFLINE"] = "1"
+        >>> path = download_model(  # doctest: +SKIP
+        ...     "sentence-transformers/all-MiniLM-L6-v2", local_files_only=True
+        ... )
     """
     try:
         from huggingface_hub import snapshot_download

@@ -13,11 +13,16 @@ _LOCAL_HUB_CACHE = Path("/mnt/models/hub")
 class BaseModel:
     """A local text checkpoint and its input token embedding table dimensions.
 
-    ``path`` is the absolute checkpoint directory. ``vocab_size`` is the
+    ``path`` identifies the checkpoint directory. ``vocab_size`` is the
     number of rows in its input embedding table and ``embedding_dim`` is the
     width of each token vector. A width-preserving Ariadne input affine uses
     an ``(embedding_dim, embedding_dim)`` weight matrix and an
     ``(embedding_dim,)`` bias, separate from any classification head.
+
+    Constructing this dataclass does not inspect or validate checkpoint files.
+    Discovery and ``DecisionModel.base_model`` selection return inspected
+    descriptors with absolute paths. Successful inspection does not establish
+    support in a training or inference engine.
     """
 
     path: Path

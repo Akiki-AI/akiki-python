@@ -21,7 +21,7 @@ with VAD(
     model_precision=ModelPrecision.INT8,
     fft_precision=FFTPrecision.FP32,
 ) as detector:
-    frames = detector.push(samples)
+    frames = detector.push([0.0] * 256)
 ```
 
 VAD and MiniLM also have distinct model precision domains. Use
@@ -88,8 +88,25 @@ Run the checks used in CI:
 ruff check .
 ruff format --check .
 yamllint --strict .github .pre-commit-config.yaml .yamllint.yaml
-python -m pytest -q
+HF_HUB_OFFLINE=1 python -m pytest -q -rs
 ```
+
+Check the executable examples in the public inference docstrings:
+
+```bash
+HF_HUB_OFFLINE=1 python -m pytest -q --doctest-modules \
+    src/akiki/__init__.py src/akiki/vad.py src/akiki/decision.py src/akiki/hub.py
+```
+
+VAD examples require a working local engine. Examples with placeholder text-model
+paths are skipped. The normal suite uses synthetic local checkpoints for native
+text tests. Real-model tests require an explicit `AKIKI_MINILM_MODEL` path.
+
+Training tests require the separate companion and its Ariadne dependencies.
+Install `akiki-training[ariadne]` from an existing local checkout or a tested
+package version. The base development group does not install it.
+Use the test summary to identify skipped optional-runtime checks.
+Passing inference tests does not establish that the optional training tests ran.
 
 The commit hooks run Ruff fixes, Ruff formatting, then YAML linting. Use
 `pre-commit run --all-files` to check tracked files before committing. Generated
