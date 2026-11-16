@@ -155,11 +155,13 @@ class VAD:
         Parameters
         ----------
         model_path : str or pathlib.Path, optional
-            Local model path, such as ``"vad.onnx"``. A JSON metadata file with
-            the same stem is required. ONNX and PyTorch use matching ``.onnx``
-            and ``.pt`` files; Akiki uses the sibling ``<stem>-native/`` directory
-            containing ``config.json``, ``model.safetensors``, and ``export.json``.
             If omitted, use the bundled model.
+            For a custom Akiki model, pass its JSON metadata path, such as
+            ``"models/vad.json"``. The Akiki engine loads the sibling
+            ``"models/vad-native/"`` directory. It must contain ``config.json``,
+            ``model.safetensors``, and ``export.json``.
+            The ONNX and PyTorch compatibility fallbacks use matching ``.onnx``
+            and ``.pt`` files beside the metadata file.
             Custom models must use the full-waveform GRU format. Supported
             ``(chunk_samples, context_samples)`` pairs are ``(256, 320)`` and
             ``(512, 64)``. Custom PyTorch metadata also requires ``pytorch_sha256``.
