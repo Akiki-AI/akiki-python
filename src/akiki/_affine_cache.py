@@ -14,6 +14,7 @@ from typing import Protocol
 
 import numpy as np
 
+from ._atomic import replace_file
 from ._base_models import BaseModel
 from ._quantization import default_cache_dir
 
@@ -151,7 +152,7 @@ class _AffineCache(MutableMapping[BaseModel, AffineLayer]):
                 )
                 stream.flush()
                 os.fsync(stream.fileno())
-            os.replace(temporary, path)
+            replace_file(temporary, path)
         except OSError as error:
             raise RuntimeError(
                 f"Cannot save trained affine cache entry {path}. "

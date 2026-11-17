@@ -1,6 +1,7 @@
 """Optionally bundle prebuilt C-ABI libraries in a platform-specific wheel."""
 
 import os
+import re
 import shutil
 import struct
 from pathlib import Path
@@ -56,6 +57,29 @@ def linux_platform(libraries):
     return "linux_aarch64" if machine == 183 else "linux_x86_64"
 
 
+def macos_platform(libraries, tag):
+    """Use the bundled Mach-O architecture instead of the Python interpreter's tag."""
+    if not libraries or not all(path.suffix == ".dylib" for path in libraries):
+        return None
+    platform = re.fullmatch(r"(macosx_\d+_\d+)_(?:x86_64|arm64|universal2)", tag)
+    if platform is None:
+        raise ValueError("Native macOS libraries require a macOS wheel platform")
+    machines = set()
+    for path in libraries:
+        with path.open("rb") as source:
+            header = source.read(8)
+        if len(header) != 8 or header[:4] != b"\xcf\xfa\xed\xfe":
+            raise ValueError(f"Expected a thin little-endian Mach-O64 library: {path.name}")
+        machine = int.from_bytes(header[4:8], "little")
+        if machine not in {0x01000007, 0x0100000C}:
+            raise ValueError(f"Unsupported Mach-O architecture in {path.name}: {machine}")
+        machines.add(machine)
+    if len(machines) != 1:
+        raise ValueError("Native libraries must have the same architecture")
+    architecture = "arm64" if machines.pop() == 0x0100000C else "x86_64"
+    return f"{platform[1]}_{architecture}"
+
+
 class BuildPy(build_py):
     def run(self):
         super().run()
@@ -80,6 +104,7 @@ class BdistWheel(bdist_wheel):
         python, abi, platform = super().get_tag()
         libraries = native_libraries()
         platform = linux_platform(libraries) or platform
+        platform = macos_platform(libraries, platform) or platform
         # ctypes uses the C ABI; this library has no CPython ABI dependency.
         return ("py3", "none", platform) if libraries else (python, abi, platform)
 

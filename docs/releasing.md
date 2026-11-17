@@ -190,14 +190,41 @@ and that `akiki.decision._load_library()` loads the installed MiniLM
 library. When no precision is specified, ONNX and PyTorch compatibility engines use
 FP32; an explicit non-FP32 request must require the Akiki engine.
 
+## Build Windows and macOS wheels
+
+The release workflow builds Windows x64, macOS Intel, and macOS Apple Silicon wheels.
+It uses Windows and macOS GitHub-hosted runners.
+No local Windows or Mac computer is required.
+Each wheel contains the VAD and decision-model libraries.
+The jobs use the pinned engine revision and baseline CPU settings.
+
+Windows wheels use the `win_amd64` tag.
+Mac wheels use separate `macosx_11_0_x86_64` and `macosx_11_0_arm64` tags.
+The macOS deployment target is 11.0. CI tests run on macOS 15.
+Windows ARM64 is not part of this build matrix.
+
+Each job installs its wheel into a new virtual environment.
+It checks that VAD and decision inference load the bundled native libraries.
+It runs the Python tests against the installed package with both native engines required.
+Tests generate small synthetic checkpoints. No model is downloaded.
+The release verifier checks PE and Mach-O architecture headers against wheel tags.
+It preserves exact bundled model checksums.
+
+For a targeted check, run `publish.yml` manually with `desktop_only` enabled.
+Leave `publish` disabled. Desktop-only runs cannot publish a package.
+The verified wheels are saved as `python-distributions-windows-x86_64`,
+`python-distributions-macos-x86_64`, and `python-distributions-macos-arm64` artifacts.
+Private engine source is not included in these artifacts.
+
 ## Publish from GitHub Actions
 
 The workflow is `.github/workflows/publish.yml`. It builds and verifies the
-portable wheel, source archive, and Linux x86_64 and ARM64 native wheels.
+portable wheel, source archive, Linux x86_64 and ARM64 native wheels,
+Windows x64 wheel, and both macOS architecture wheels.
 The current decision runtime supports MiniLM/BERT exports.
 Its ARM64 support is experimental.
 ARM64 builds in manylinux_2_28 on a native ARM64 runner.
-x86_64 retains the glibc 2.34 floor. Both build jobs must pass before publishing. It tests the
+x86_64 retains the glibc 2.34 floor. All native build jobs must pass before publishing. It tests the
 native loader, Python API, and clean installations before saving the artifacts.
 Models come exclusively from `src/akiki/models/`; no model is downloaded.
 
@@ -228,7 +255,7 @@ After merging, run the workflow manually on `main` with the `publish` input enab
 The retry requires an existing GitHub release.
 It checks that package source matches its version tag;
 only the workflow and this release document may differ. This preserves the tag
-while allowing CI-only repairs. Both native build jobs run again before upload.
+while allowing CI-only repairs. All native build jobs run again before upload.
 
 The existing PyPI `akiki` project must trust owner `Akiki-AI`, repository
 `akiki-python`, workflow filename `publish.yml`, with the environment left
@@ -279,5 +306,6 @@ Do not store credentials in this repository.
 ```
 
 The script verifies and uploads all wheels for the current version plus its
-source archive. It refuses a release with no native wheel or stale description.
+source archive. It requires the Linux, Windows, and macOS native wheels.
+It rejects stale descriptions.
 It does not upload artifacts from previous versions.
