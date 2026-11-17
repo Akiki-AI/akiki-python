@@ -5,13 +5,31 @@ features and usage. Build and publishing instructions belong here.
 
 ## Branches and release preparation
 
-Use `release-0.2.1` for this patch release and its integration checks.
-Create it from the tested `release-0.2.0` commit.
-Keep `main` unchanged until the code has passed human review.
-Set the release version on that branch before you build the release artifacts.
-Creating or pushing these branches does not publish a package to PyPI.
-The branch name does not set the package version. Read the current value with
-`python3 verify_dist.py --version`.
+Use `main` for reviewed source and documentation.
+Create each change on a short-lived branch from `main`.
+Use a descriptive `feat/`, `fix/`, `docs/`, or `chore/` name.
+Open a pull request with `main` as its base.
+Require the `lint` and `tests` checks before merging.
+Resolve review conversations before merging.
+Delete the branch after its pull request is merged.
+
+The public CI workflow runs lint and tests on pushes and pull requests.
+Its tests use public dependencies and synthetic local checkpoints.
+Private engine and training checks run on `main` and trusted manual builds.
+Fork PR jobs do not receive private checkout credentials.
+
+Use version tags to record releases and release candidates.
+For example, use `v0.2.1` for version `0.2.1` and `v0.2.2rc1` for `0.2.2rc1`.
+Do not create an RC branch or release branch for each version.
+Keep published tags unchanged.
+Create a maintenance branch only when an older version needs separate fixes.
+
+Set the next package version in a pull request before its release.
+Read the current value with `python3 verify_dist.py --version`.
+Merge the version change and wait for the native builds and private training checks.
+Tag the tested `main` commit with `v` followed by that exact version.
+Creating a branch or pushing a tag does not publish a package to PyPI.
+Publishing the GitHub release starts PyPI publication.
 
 Update the version in `pyproject.toml`, `src/akiki/__init__.py`, the version
 assertion in `tests/test_vad.py`, and the package version in
@@ -46,7 +64,7 @@ directories and notebooks. `verify_dist.py` rejects local artifacts and
 unexpected package files in the built archives.
 
 The training implementation, dataset tools, and Lab remain private.
-Do not publish or bundle their code with Akiki 0.2.1.
+Do not publish or bundle their code with Akiki.
 The public package retains the training API wrapper.
 Its `training` extra installs runtime dependencies only.
 Authorized users must install the private companion from a local checkout or wheel.
@@ -176,18 +194,22 @@ It does not upload the private wheel or companion source as a workflow artifact.
 The publish job retrieves only the public distributions from the build jobs.
 No manually built training wheel is required.
 
-Run the workflow manually on the RC or release branch to build and test without
-publishing. Leave the `publish` input disabled. Pushes to `main` also run these
-checks after human review; do not update `main` to start an RC build.
+Run the workflow manually on a trusted change branch to build and test before merging.
+Leave the `publish` input disabled.
+Pushes to `main` also run these checks after reviewed changes are merged.
+Only trusted builds can check out the private engine and training source.
 Publishing a GitHub release runs the same checks and then uploads
 the verified artifacts to PyPI using Trusted Publishing. The release tag must
-be `v` followed by the version in `pyproject.toml`, for example `v0.1.0`. Update
+be `v` followed by the version in `pyproject.toml`, for example `v0.2.2`. Update
 all the version locations listed above first, and use a version that has not
 already been uploaded to PyPI.
+For a release candidate, mark the GitHub release as a prerelease.
+Its package version must include the same `rc` suffix as its tag.
 
-If publication fails before uploading, fix the workflow on the release branch
-and run it manually with the `publish` input enabled. The retry requires an
-existing GitHub release and checks that package source matches its version tag;
+If publication fails before uploading, submit the workflow repair through a PR to `main`.
+After merging, run the workflow manually on `main` with the `publish` input enabled.
+The retry requires an existing GitHub release.
+It checks that package source matches its version tag;
 only the workflow and this release document may differ. This preserves the tag
 while allowing CI-only repairs. Both native build jobs run again before upload.
 
@@ -198,8 +220,9 @@ blank. Only the publishing job has `id-token: write`; no PyPI token is stored.
 The native source is pinned by `AKIKI_INFERENCE_REV` in the workflow. Update
 that commit deliberately when changing the engine. It must be reachable on
 GitHub and have passed the required engine review. Its MiniLM C ABI
-(`crates/akiki-minilm-engine/src/ffi.rs`) must match `src/akiki/decision.py`. Both repositories remain
-private. Source checkout uses a dedicated read-only SSH deploy key:
+(`crates/akiki-minilm-engine/src/ffi.rs`) must match `src/akiki/decision.py`.
+`akiki-python` is public. The engine source remains private.
+Source checkout uses a dedicated read-only SSH deploy key:
 
 1. Enable deploy keys in the organization's settings if they are disabled.
 2. Add the public key under `akiki-inference` Settings > Deploy keys, leaving
