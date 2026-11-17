@@ -328,7 +328,9 @@ with DecisionModel(sys.argv[4], threads=1, model_precision=ModelPrecision.FP32, 
     assert restored["logits"] == pytest.approx(expected.logits, abs=1e-7)
 
 
-def test_tokenization_uses_the_selected_specialist_and_reuses_its_handle(configured, monkeypatch):
+def test_tokenization_uses_the_selected_specialist_and_reuses_its_handle(
+    configured, monkeypatch, require_minilm_library
+):
     model, specialist, artifact = configured
     with MiniLM(artifact.output_dir, threads=1, model_precision=ModelPrecision.FP32) as direct:
         for special_tokens in (True, False):
@@ -355,7 +357,7 @@ def test_tokenization_uses_the_selected_specialist_and_reuses_its_handle(configu
         model.tokenize("w4")
 
 
-def test_tokenization_uses_the_same_specialist_selection_rules(configured):
+def test_tokenization_uses_the_same_specialist_selection_rules(configured, require_minilm_library):
     model, specialist, artifact = configured
     other = Specialist(intents=specialist.intents.copy())
     with pytest.raises(ValueError, match="Add this specialist"):

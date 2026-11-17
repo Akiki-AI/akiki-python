@@ -9,6 +9,17 @@ Follow [the Python style guide](docs/style.md) for code changes.
   Run tests appropriate to the behavior changed.
 - Preserve lazy imports for optional inference runtimes.
 
+## Branches and releases
+
+- Use `main` for reviewed source and documentation.
+- Create short-lived `feat/`, `fix/`, `docs/`, or `chore/` branches from `main`.
+- Target pull requests at `main` and delete merged branches.
+- Record releases and release candidates with version tags, such as `v0.2.1`
+  and `v0.2.2rc1`. Do not create a branch for each version.
+- Keep published tags and release artifacts unchanged.
+- Require the `lint` and `tests` checks before merging into `main`.
+- Keep private engine and training checkouts out of public pull request jobs.
+
 ## Documentation language
 
 - Use ASD-STE100 Simplified Technical English for all documentation.
