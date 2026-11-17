@@ -38,28 +38,11 @@ Install `akiki[onnx]` or `akiki[pytorch]` when you need a compatibility engine.
 
 ### Windows and macOS
 
-The release workflow builds Windows x64, macOS Intel, and macOS Apple Silicon wheels.
+Native wheels support Windows x64, macOS Intel, and macOS Apple Silicon.
 Each wheel includes the Akiki engine for VAD and decision models.
-Use a Python installation that matches the wheel's architecture.
+Pip selects the wheel for your Python installation. No engine build is required.
 Windows ARM64 wheels are not available.
-The macOS wheels target macOS 11.0 or later. CI tests run on macOS 15.
-
-The published PyPI 0.2.1 release has no Windows or macOS Akiki engine wheels.
-Until the next release, install a verified wheel from the
-[Publish workflow](https://github.com/Akiki-AI/akiki-python/actions/workflows/publish.yml).
-Select a successful run with completed `build-desktop` jobs.
-Get the artifact for your system:
-
-| System | Workflow artifact |
-| --- | --- |
-| Windows x64 | `python-distributions-windows-x86_64` |
-| macOS Intel | `python-distributions-macos-x86_64` |
-| macOS Apple Silicon | `python-distributions-macos-arm64` |
-
-Extract the artifact into the current directory.
-The examples below use the verified 0.2.1 wheel filenames.
-The `--force-reinstall` option also replaces an existing portable 0.2.1 installation.
-For later releases with these wheels on PyPI, use `pip install --upgrade akiki`.
+The macOS wheels target macOS 11.0 or later.
 
 #### Windows (PowerShell)
 
@@ -68,7 +51,7 @@ Run these commands in PowerShell:
 
 ```powershell
 py -3 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --force-reinstall ".\akiki-0.2.1-py3-none-win_amd64.whl"
+.\.venv\Scripts\python.exe -m pip install akiki
 $env:HF_HUB_OFFLINE = "1"
 .\.venv\Scripts\python.exe -m akiki vad ".\recording.wav" --engine akiki
 .\.venv\Scripts\python.exe -m akiki vad --help
@@ -88,27 +71,12 @@ Use [`DecisionModel`](#decision-models) to manage saved specialists through Pyth
 #### macOS (Terminal)
 
 Use Python 3.10 or later.
-Create a virtual environment:
-
-```bash
-python3 -m venv .venv
-```
-
-For an Apple Silicon Python installation, install the ARM64 wheel:
-
-```bash
-.venv/bin/python -m pip install --force-reinstall ./akiki-0.2.1-py3-none-macosx_11_0_arm64.whl
-```
-
-For an Intel Python installation, install the x86_64 wheel instead:
-
-```bash
-.venv/bin/python -m pip install --force-reinstall ./akiki-0.2.1-py3-none-macosx_11_0_x86_64.whl
-```
-
+Use a Python installation that matches your Mac's architecture.
 Run these commands in Terminal:
 
 ```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install akiki
 export HF_HUB_OFFLINE=1
 .venv/bin/python -m akiki vad "./recording.wav" --engine akiki
 .venv/bin/python -m akiki vad --help
