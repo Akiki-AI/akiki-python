@@ -1,4 +1,8 @@
-"""Akiki tools for local speech and text inference and explicit Hub downloads."""
+"""Akiki tools for VAD, direct MiniLM inference, and explicit checkpoint retrieval.
+
+Use ``akiki.decision.DecisionModel`` for specialist decisions through the Python API.
+The ``minilm`` subcommand gives direct access to the current MiniLM/BERT runtime.
+"""
 
 import argparse
 import json

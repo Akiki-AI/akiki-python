@@ -1,5 +1,7 @@
-"""Local model inference and training.
+"""Local voice activity detection and decision models.
 
+The primary interfaces are ``akiki.vad.VAD`` and ``akiki.decision.DecisionModel``.
+Training and teacher review support the decision-model workflow.
 The public API is organized into four areas:
 
 ``akiki.vad``
@@ -7,12 +9,12 @@ The public API is organized into four areas:
     ``SpeechFrame`` objects. Configure inference with this module's ``Engine``,
     ``ModelPrecision``, and ``FFTPrecision`` enums. The VAD model is bundled.
 ``akiki.decision``
-    Select a local encoder with ``DecisionModel`` and ``list_base_models``.
+    Select a local base checkpoint with ``DecisionModel`` and ``list_base_models``.
     Classify saved specialists with ``DecisionModel`` through the Akiki engine.
-    Run text embeddings and classification directly with ``MiniLM``. Results are
-    ``Encoding`` and ``Classification`` objects. This module has its own
-    ``ModelPrecision`` enum. Pass a local MiniLM checkpoint or Ariadne variant;
-    MiniLM weights are not bundled.
+    Current native inference supports MiniLM/BERT exports. The lower-level
+    ``MiniLM`` class gives direct access to embeddings and classification for
+    that family. Results are ``Encoding`` and ``Classification`` objects.
+    This module has its own ``ModelPrecision`` enum. Base weights are not bundled.
 ``akiki.training``
     Optional classifier training backed by the private ``akiki-training``
     companion. Install it separately from an authorized local checkout or wheel.
@@ -25,7 +27,7 @@ The public API is organized into four areas:
 
 ``VAD`` and ``MiniLM`` are also available directly from ``akiki`` as shortcuts.
 Import supporting result types and configuration enums from their respective
-modules. VAD and MiniLM precision enums have different supported formats and
+modules. VAD and decision precision enums have different supported formats and
 are not interchangeable.
 
 ``dir(akiki)`` lists the primary classes, modules, and version. ``training`` and
@@ -51,13 +53,15 @@ Find domain-specific configuration and help through the modules::
     False
 
 Use ``help(akiki.vad)`` and ``help(akiki.decision)`` to explore each API, or
-``help(akiki.VAD)`` and ``help(akiki.MiniLM)`` for the main classes. Explicit
-model retrieval utilities live in ``akiki.hub``.
+``help(akiki.vad.VAD)`` and ``help(akiki.decision.DecisionModel)`` for the
+primary classes. Use ``help(akiki.decision.MiniLM)`` for direct access to the
+currently supported decision-model family.
+Explicit model retrieval utilities live in ``akiki.hub``.
 
 Compatibility
 -------------
 ``akiki.minilm`` remains a compatibility module. It re-exports the decision
-API's class, result types, and current precision enum.
+API's MiniLM class, result types, and current precision enum.
 Existing named top-level imports of ``SpeechFrame``, ``Engine``, ``ModelPrecision``,
 ``FFTPrecision``, ``Encoding``, ``Classification``, and ``download_model`` remain
 available. The top-level precision enums refer to VAD.

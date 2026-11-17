@@ -1,6 +1,8 @@
-"""Compatibility imports for the text inference API in ``akiki.decision``.
+"""Compatibility imports for the MiniLM/BERT runtime in ``akiki.decision``.
 
-Use ``akiki.decision`` for new code. Both modules expose the same ``MiniLM``,
+Use ``akiki.decision.DecisionModel`` for specialist decisions.
+Use ``akiki.decision.MiniLM`` for direct access to the supported family.
+Both modules expose the same ``MiniLM``,
 ``Encoding``, ``Classification``, and current text ``ModelPrecision`` objects.
 Older precision strings must be replaced with text precision enum members.
 """

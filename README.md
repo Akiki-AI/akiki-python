@@ -1,11 +1,15 @@
 # Akiki
 
-Akiki runs streaming voice activity detection and MiniLM text models locally.
+Akiki provides local voice activity detection (VAD) and decision models.
 VAD returns a speech probability, a speech/silence decision, and timestamps for
-each 16 ms frame. Text models return sentence embeddings or label probabilities.
-Saved specialists run through the [decision API](#decision-models).
+each 16 ms frame. Decision models classify text with saved specialists and
+return label probabilities through [`DecisionModel`](#decision-models).
 Training uses an optional companion package. An experimental teacher API can
 request example proposals from a server on your own computer or infrastructure.
+
+Decision models use a frozen base checkpoint and specialist adapters.
+The Akiki engine currently supports MiniLM/BERT exports for decision inference.
+Support for other model families requires additional inference implementations.
 
 The VAD model is included in the package. VAD runs locally, without a model
 download, network connection, or external service. The Akiki engine uses INT8
@@ -16,7 +20,7 @@ model inference by default, with an FP32 FFT.
 Requires Python 3.10 or later.
 
 This README describes the current source tree. For an installed release, use
-the README from its matching version tag. RC features reach PyPI after release.
+the README from its matching version tag.
 
 ```bash
 pip install akiki
@@ -34,23 +38,29 @@ Install `akiki[onnx]` or `akiki[pytorch]` when you need a compatibility engine.
 
 ## Python usage
 
-The API has four modules:
+Use `akiki.vad` for VAD and `akiki.decision` for decision models.
+The training and teacher modules support the decision-model workflow:
 
 | Module | Main interface | Supporting types |
 | --- | --- | --- |
 | `akiki.vad` | `VAD` for speech detection | `SpeechFrame`, `Engine`, `ModelPrecision`, `FFTPrecision` |
-| `akiki.decision` | `DecisionModel` for specialist inference; `MiniLM` for direct text inference | `BaseModel`, `Specialist`, `AffineLayer`, `TrainedSpecialist`, `SpecialistEvaluation`, `TrainingAdvice`, `list_base_models`, `Encoding`, `Classification`, `ModelPrecision` |
+| `akiki.decision` | `DecisionModel` for specialist decisions | `BaseModel`, `Specialist`, `AffineLayer`, `TrainedSpecialist`, `SpecialistEvaluation`, `TrainingAdvice`, `list_base_models`, `Classification`, `ModelPrecision` |
 | `akiki.training` | Classifier training with a private companion | The installed companion's API, including `LocalModel`, `ModelFamily`, and `Trainer` |
 | `akiki.teacher` | Experimental review through a local or self-hosted server | `Teacher`, `Verdict`, `DecisionReview`, `TeachingResult` |
 
-`VAD` and `MiniLM` are also available as top-level shortcuts:
+Import the primary interfaces from their modules:
 
 ```python
-from akiki import VAD, MiniLM
+from akiki.vad import VAD
+from akiki.decision import DecisionModel, Specialist
 ```
 
-Import configuration enums and result types from the relevant module. VAD and
-MiniLM have distinct `ModelPrecision` enums with different supported formats.
+Import configuration enums and result types from the relevant module.
+VAD and decision inference have distinct `ModelPrecision` enums.
+Their supported formats differ.
+`MiniLM` is the lower-level interface for direct embeddings and classification
+with the currently supported MiniLM/BERT family.
+The existing `akiki.VAD` and `akiki.MiniLM` shortcuts remain available.
 The existing top-level result types and VAD enums remain available as
 compatibility aliases. Import `training` explicitly when its optional companion
 package is installed; the base package does not load it.
@@ -58,10 +68,12 @@ package is installed; the base package does not load it.
 `teacher` modules appear after explicit import. Supporting aliases and internal
 modules remain accessible but are omitted from that list.
 
-The text inference module is named `akiki.decision`. Existing imports from
+The decision-model module is named `akiki.decision`. Existing imports from
 `akiki.minilm` remain available for compatibility and use the same classes
 and precision enum. Named top-level compatibility imports remain available.
 Wildcard imports expose only `VAD`, `MiniLM`, `vad`, `decision`, and `__version__`.
+
+## Voice activity detection (VAD)
 
 Akiki accepts mono audio sampled at 16,000 Hz.
 
@@ -91,7 +103,8 @@ import akiki
 
 help(akiki)  # Overview of vad, decision, training, and teacher
 help(akiki.vad)  # Speech detection, configuration, and result types
-help(akiki.decision)  # Text inference, configuration, and result types
+help(akiki.decision)  # Decision models, specialists, and result types
+help(akiki.decision.DecisionModel)  # Base-model selection and specialist inference
 help(akiki.decision.Specialist.train)  # Training parameters and saved exports
 help(akiki.VAD)  # Configuration, attributes, and streaming example
 help(akiki.VAD.__init__)  # Constructor parameters and defaults
@@ -99,7 +112,7 @@ help(akiki.VAD.push)  # Audio input, buffering, results, and errors
 help(akiki.vad.SpeechFrame)  # Result fields and timestamp units
 ```
 
-## Command line
+### Command line
 
 ```bash
 akiki vad recording.wav
@@ -115,10 +128,13 @@ subcommands: `vad`, `minilm`, and `download`. Use `akiki --help` to list them.
 The equivalent module invocation is `python -m akiki vad recording.wav`.
 Specialist management and teacher review use the Python API. The optional
 training command belongs to the separate companion package.
+The `minilm` command gives direct access to the current MiniLM/BERT runtime.
+It does not manage decision-model specialists.
 
-## Inference engines
+### Inference engines
 
-The Akiki engine is the primary engine for VAD and MiniLM.
+The Akiki engine is the primary engine for VAD and decision-model inference.
+Its current decision-model implementation supports MiniLM/BERT exports.
 ONNX and PyTorch are VAD compatibility fallbacks.
 
 Linux x86_64 wheels include the Akiki engine for systems with glibc 2.34 or later.
@@ -166,9 +182,10 @@ An explicitly selected engine raises an error if it is unavailable. Check
 `Engine` members to the reasons they were unavailable during automatic selection.
 
 All VAD engines use the same bundled model and streaming API.
-The compatibility fallbacks apply to VAD. Text inference requires the Akiki engine.
+The compatibility fallbacks apply to VAD.
+Decision-model inference currently requires the Akiki engine and a supported export.
 
-## Model precision
+### Model precision
 
 `VAD()` and the command line use INT8 by default when running the Akiki engine.
 The package generates the INT8 weights from the bundled FP32 model on first use
@@ -218,7 +235,7 @@ When no model precision is specified, ONNX and PyTorch use FP32, including when
 always honored: non-FP32 precision requires the Akiki engine and raises an error if a
 compatible Akiki engine is unavailable.
 
-## Precision and performance
+### Precision and performance
 
 INT8 is the default because it gave the best measured speed and average
 precision tradeoff in our benchmark. It took **8.90 µs per frame through
@@ -252,6 +269,15 @@ differences do not establish a statistically significant accuracy improvement.
 
 ## Decision models
 
+`DecisionModel` is the primary interface for text decisions.
+A decision model combines a frozen base checkpoint with saved specialists.
+Each specialist has its own intents, examples, input affine, and classification head.
+The decision-model interface describes these objects independently of a model family.
+Inference support depends on the engine implementation for the selected family.
+The current Akiki engine supports MiniLM/BERT exports.
+
+### Base-model selection
+
 `DecisionModel` selects a local text checkpoint through its `base_model`
 property and classifies saved specialists with the native Akiki engine.
 `list_base_models()` returns `BaseModel` descriptors for
@@ -265,7 +291,7 @@ for base in list_base_models():
     print(base.name, base.path, base.embedding_shape)
 
 # Select the exact local checkpoint that you intend to use.
-model = DecisionModel("path/to/local/MiniLM")
+model = DecisionModel("path/to/local/base-model")
 print(model.base_model.embedding_shape)  # (vocabulary rows, token vector width)
 width = model.base_model.embedding_dim
 print((width, width), (width,))  # Input affine weight and bias shapes.
@@ -284,11 +310,14 @@ Successful selection does not establish compatibility with a training or inferen
 | `list_base_models()` | Recognized encoder snapshots with complete local files |
 | `DecisionModel.base_model` | Local text checkpoints whose metadata and input dimensions can be inspected |
 | `Specialist.train()` | Training families supported by the installed companion package |
-| `MiniLM` and `DecisionModel` inference | Supported MiniLM/BERT exports with `model.safetensors` and `tokenizer.json` |
+| `DecisionModel` inference | Currently supported MiniLM/BERT specialist exports with `model.safetensors` and `tokenizer.json` |
+| `MiniLM` | Direct embeddings and classification for the same supported family |
 
 Discovery can find other encoder families and sharded checkpoints.
 The native text loader requires one unsharded `model.safetensors` file.
 Qwen specialist inference is not exposed by this Python binding.
+
+### Specialists
 
 Each `DecisionModel` also has a `Specialists` property containing its own empty
 `set[Specialist]`. Each specialist has an `intents: set[str]` and an
@@ -357,6 +386,8 @@ Pass `list_base_models(cache_dir="path/to/hub")` to search a specific cache.
 It skips incomplete snapshots and generative models. Discovery and selection
 use local files only and require no optional training or Hugging Face packages.
 
+### Specialist training and saved exports
+
 `Specialist.train()` calls the separately installed private `akiki-training` companion
 and reuses a complete saved adapter when its base, examples, holdouts, and
 training configuration match. The saved artifact retains both the input affine
@@ -386,7 +417,10 @@ Labels in `TrainedSpecialist.labels` are sorted by intent name.
 Training requires the private companion even when it reuses a saved result.
 Saved-report evaluation and native inference do not require the companion.
 
-Classify with the saved specialist through the Akiki MiniLM engine used by `MiniLM`.
+### Decision inference
+
+Classify with the saved specialist through `DecisionModel`.
+The current implementation loads compatible MiniLM/BERT exports through the Akiki engine.
 The result includes the predicted `label`, its
 `index`, and `probabilities` and `logits` in `trained.labels` order:
 
@@ -430,10 +464,12 @@ Do not change specialist data or its attached set during inference.
 The current Akiki engine folds each input affine into its own embedding table
 in memory, so different specialists currently load separate base copies. Saved
 checkpoint and adapter files stay unchanged. `model_precision` defaults to
-`ModelPrecision.INT8`, as for `MiniLM`; use `FP32` for comparisons with training
-metrics. `library_path=` selects an existing native shared library explicitly.
+`ModelPrecision.INT8`. Use `FP32` for comparisons with training metrics.
+`library_path=` selects an existing native shared library explicitly.
 Linux ARM64 MiniLM support remains experimental. Inputs are passed verbatim and
 are never silently truncated.
+
+### Reports and training advice
 
 `Specialist.eval()` reads the saved validation report. It does not run new
 predictions or evaluate a new dataset. Test scores are not part of this report.
@@ -488,6 +524,8 @@ Use separate explicit validation and test dictionaries to keep holdouts out
 of those references. Custom teachers control their own model and network access.
 `Specialist.suggest_examples()` requires the private training companion,
 including when a custom teacher is supplied.
+
+### Teacher review
 
 An experimental server-backed teacher can review the decisions of an attached,
 trained specialist and propose similar examples when it judges a decision to be
@@ -556,11 +594,14 @@ teacher proposals and need review before acceptance. JSONL export uses `text` an
 `label` fields compatible with `akiki.training.load_examples`. When continuing a
 run with explicit validation/test data, supply the original holdouts to `train()`.
 
-## MiniLM text models
+### Current inference support: MiniLM/BERT
 
-`akiki.MiniLM` runs MiniLM sentence encoders locally with the Akiki engine. It
-loads plain checkpoints, such as `sentence-transformers/all-MiniLM-L6-v2`, and
-Akiki Ariadne variants that add a small adapter to the frozen encoder, such as
+The current Akiki engine implements MiniLM/BERT inference for decision models.
+`DecisionModel` uses this implementation to run saved specialists.
+The lower-level `akiki.decision.MiniLM` class gives direct access to embeddings
+and classification for this family. It loads plain checkpoints, such as
+`sentence-transformers/all-MiniLM-L6-v2`, and Akiki Ariadne variants.
+These variants add a small adapter to the frozen encoder. One example is
 the Akiki MiniLM-L6-v2 Clover intent classifier.
 
 To train a compatible classifier from labelled examples, use the separate
@@ -571,7 +612,7 @@ The MiniLM weights are not included in the package. Pass the path to a local
 copy when creating the model:
 
 ```python
-from akiki import MiniLM
+from akiki.decision import MiniLM
 
 with MiniLM("path/to/all-MiniLM-L6-v2") as model:
     vectors = model.embed(["A man is eating food.", "Someone is eating a meal."])
@@ -670,7 +711,7 @@ akiki minilm --help
 The command prints JSON: the classification for models with a head, and the
 embedding otherwise. Add `--embedding` to include the embedding as well.
 
-### Hugging Face models
+#### Hugging Face models
 
 Use the optional Hub integration with compatible MiniLM checkpoints or Ariadne
 variants. The examples below use existing cache files:
@@ -682,7 +723,7 @@ pip install 'akiki[huggingface]'
 ```python
 import os
 
-from akiki import MiniLM
+from akiki.decision import MiniLM
 from akiki.hub import download_model
 
 os.environ["HF_HUB_OFFLINE"] = "1"
@@ -733,9 +774,9 @@ Without the offline setting or local-only option, explicit Hub calls can use
 the network. `--local-dir` selects a model directory; in offline mode, its
 required checkpoint files must already exist there.
 
-## Training
+### Training
 
-The private `akiki-training` project supplies Ariadne classifier training.
+The private `akiki-training` project supplies Ariadne training for decision models.
 Akiki 0.2.1 includes its public API wrapper. The trainer implementation remains private.
 Training requires authorized access to a separate local companion installation.
 Ariadne adapts the query's representation so a frozen model can use its existing
@@ -746,7 +787,8 @@ the installed implementation; native inference here supports MiniLM/BERT exports
 Dataset tools and Ariadne Lab have separate companion packages.
 Akiki includes the training API wrapper. Trainer implementations and Lab assets
 stay in the private companion projects. Datasets and experiment outputs stay local.
-MiniLM classifier exports load with `akiki.MiniLM` without the training package.
+Supported MiniLM/BERT specialist exports run through `DecisionModel` without
+the training package. Use `MiniLM` for direct access to a compatible export.
 
 Install the optional runtime dependencies through Akiki:
 
