@@ -185,6 +185,20 @@ All VAD engines use the same bundled model and streaming API.
 The compatibility fallbacks apply to VAD.
 Decision-model inference currently requires the Akiki engine and a supported export.
 
+Automatic library discovery checks only the package's `native` directory.
+It does not search developer directories, Cargo outputs, or the current directory.
+For a separately built library, pass `library_path=` in Python or `--library-path`
+on the command line. You can also set an engine-specific environment variable:
+
+| Library | Environment variable |
+| --- | --- |
+| VAD | `AKIKI_VAD_LIBRARY` |
+| Decision models (current MiniLM/BERT runtime) | `AKIKI_MINILM_LIBRARY` |
+
+An explicit path takes priority over the environment variable and bundled library.
+If the selected library is missing or incompatible, no other library is tried.
+VAD with `Engine.AUTO` can still use the ONNX, then PyTorch compatibility fallbacks.
+
 ### Model precision
 
 `VAD()` and the command line use INT8 by default when running the Akiki engine.
