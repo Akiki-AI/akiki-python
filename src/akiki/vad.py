@@ -176,8 +176,8 @@ class VAD:
             Pass an ``Engine`` member, such as ``Engine.AKIKI``.
         library_path : str or pathlib.Path, optional
             Specific local Akiki shared library to load. Affects only the Akiki
-            engine. If omitted, use ``AKIKI_VAD_LIBRARY`` or discover a bundled
-            or locally built library.
+            engine. If omitted, use ``AKIKI_VAD_LIBRARY`` or the bundled library.
+            Automatic discovery does not search developer directories.
         model_precision : ModelPrecision, optional
             One of ``ModelPrecision.FP32``, ``FP16``, ``BF16``, ``INT8``,
             ``INT4``, or ``INT8_FP32_INPUT``. If omitted, Akiki uses INT8 and

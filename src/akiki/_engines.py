@@ -141,30 +141,12 @@ def library_name(stem="akiki_vad_engine"):
 
 
 def library_candidates(library_path=None, stem="akiki_vad_engine", variable="AKIKI_VAD_LIBRARY"):
+    """Use an explicit library or the library in the package."""
     explicit = library_path or os.environ.get(variable)
     if explicit:
         yield Path(explicit).expanduser()
         return
-    name = library_name(stem)
-    yield Path(__file__).parent / "native" / name
-    # The offline build helper keeps artifacts inside the Python workspace.
-    source_root = Path(__file__).resolve().parents[2]
-    yield source_root / ".cache/native-target/release" / name
-    target_dir = os.environ.get("CARGO_TARGET_DIR")
-    roots = [
-        Path.home() / "projects/Akiki/akiki-inference",
-        Path("/projects/Akiki/akiki-inference"),
-    ]
-    if os.environ.get("AKIKI_INFERENCE_DIR"):
-        roots.insert(0, Path(os.environ["AKIKI_INFERENCE_DIR"]).expanduser())
-    targets = ([Path(target_dir).expanduser()] if target_dir else []) + [
-        r / "target" for r in roots
-    ]
-    for target in targets:
-        if os.environ.get("CARGO_BUILD_TARGET"):
-            target = target / os.environ["CARGO_BUILD_TARGET"]
-        for profile in ("release", "debug"):
-            yield target / profile / name
+    yield Path(__file__).resolve().parent / "native" / library_name(stem)
 
 
 class AkikiBackend(Backend):
