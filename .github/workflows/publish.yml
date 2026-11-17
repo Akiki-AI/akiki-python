@@ -113,9 +113,10 @@ jobs:
         env:
           AKIKI_VAD_TEST_NATIVE: "1"
           AKIKI_MINILM_TEST_NATIVE: "1"
-          AKIKI_VAD_LIBRARY: ${{ github.workspace }}/.cache/native-target/release/libakiki_vad_engine.so
-          AKIKI_MINILM_LIBRARY: ${{ github.workspace }}/.cache/native-target/release/libakiki_minilm_engine.so
-        run: python -m pytest -q
+        run: |
+          AKIKI_VAD_LIBRARY="$PWD/.cache/native-target/release/libakiki_vad_engine.so" \
+          AKIKI_MINILM_LIBRARY="$PWD/.cache/native-target/release/libakiki_minilm_engine.so" \
+            python -m pytest -q
 
       - name: Test native wheel in a clean base installation
         run: |
@@ -228,8 +229,6 @@ jobs:
           AKIKI_VAD_TEST_NATIVE: "1"
           AKIKI_MINILM_TEST_NATIVE: "1"
           AKIKI_KERNELS_REQUIRE_SIMD: "1"
-          AKIKI_VAD_LIBRARY: ${{ github.workspace }}/.cache/native-target/release/libakiki_vad_engine.so
-          AKIKI_MINILM_LIBRARY: ${{ github.workspace }}/.cache/native-target/release/libakiki_minilm_engine.so
         run: |
           manifest=.cache/akiki-inference/Cargo.toml
           cargo test --offline --locked --release --manifest-path "$manifest" \
@@ -238,7 +237,9 @@ jobs:
           cargo test --offline --locked --manifest-path "$manifest" -p akiki-vad-engine --lib matrix_tests
           cargo test --offline --locked --manifest-path "$manifest" -p akiki-vad-engine --test safetensors
           cargo test --offline --locked --manifest-path "$manifest" -p akiki-minilm-engine
-          python -m pytest -q
+          AKIKI_VAD_LIBRARY="$PWD/.cache/native-target/release/libakiki_vad_engine.so" \
+          AKIKI_MINILM_LIBRARY="$PWD/.cache/native-target/release/libakiki_minilm_engine.so" \
+            python -m pytest -q
 
       - name: Test the installed ARM64 wheel with base dependencies only
         run: |
