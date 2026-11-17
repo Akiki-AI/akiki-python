@@ -114,6 +114,18 @@ requires both on x86_64 and ARM64. Linux wheel architecture is
 derived from the ELF libraries, so cross-built ARM64 libraries cannot be
 accidentally labelled as x86_64.
 
+The build helper does not install the libraries into the Python package.
+To test a source checkout with these Linux builds, set both runtime paths:
+
+```bash
+export AKIKI_VAD_LIBRARY="$native/libakiki_vad_engine.so"
+export AKIKI_MINILM_LIBRARY="$native/libakiki_minilm_engine.so"
+```
+
+Runtime discovery checks only the package's `native` directory when no path is set.
+It does not use `AKIKI_INFERENCE_DIR`, Cargo variables, or developer build directories.
+Use the library filenames for your target system with Windows or macOS builds.
+
 ## Build the Linux ARM64 wheel
 
 The wheel includes VAD and the current MiniLM/BERT decision runtime.

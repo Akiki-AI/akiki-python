@@ -307,7 +307,8 @@ class DecisionModel:
         available CPUs when loading each specialist. ``model_precision`` requires
         this module's enum and defaults to ``ModelPrecision.INT8``.
         ``library_path`` selects an existing native MiniLM shared library.
-        It overrides ``AKIKI_MINILM_LIBRARY`` and automatic library discovery.
+        It overrides ``AKIKI_MINILM_LIBRARY`` and the bundled library.
+        Automatic discovery does not search developer directories.
 
         Native loading occurs on the first inference or tokenization call.
         Use a context manager or ``close()`` to release the loaded models.
@@ -774,7 +775,8 @@ class MiniLM:
             Passing ``None`` keeps the variant's configured chunk length.
         library_path : str or os.PathLike, optional
             Path to a specific Akiki MiniLM shared library. Overrides
-            ``AKIKI_MINILM_LIBRARY`` and automatic discovery.
+            ``AKIKI_MINILM_LIBRARY`` and the bundled library.
+            Automatic discovery does not search developer directories.
 
         Raises
         ------
