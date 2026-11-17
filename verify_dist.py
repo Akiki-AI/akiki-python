@@ -29,6 +29,11 @@ parser.add_argument(
 parser.add_argument(
     "--require-arm64", action="store_true", help="Require the experimental ARM64 native wheel"
 )
+parser.add_argument(
+    "--require-desktop",
+    action="store_true",
+    help="Require Windows x64 and Intel and ARM64 macOS native wheels",
+)
 args = parser.parse_args()
 if args.wheel and args.all_wheels:
     parser.error("--wheel and --all-wheels are mutually exclusive")
@@ -113,7 +118,8 @@ def check_metadata(data):
     require(metadata["License"] is None, "Legacy licence metadata present")
     require(metadata["Description-Content-Type"] == "text/markdown", "Description must be Markdown")
     require(
-        metadata.get_payload().strip() == (root / "README.md").read_text().strip(),
+        metadata.get_payload().replace("\r\n", "\n").strip()
+        == (root / "README.md").read_text().strip(),
         "Stale public description: rebuild this artifact with the current README",
     )
     require(
@@ -198,6 +204,7 @@ require(
 )
 native_count = 0
 arm64_count = 0
+native_platforms = set()
 checks["wheels"] = {}
 for wheel in wheels:
     with zipfile.ZipFile(wheel) as archive:
@@ -273,6 +280,27 @@ for wheel in wheels:
                             and int.from_bytes(header[18:20], "little") == machine,
                             "Bundled ELF architecture differs from the wheel tag",
                         )
+                elif platform.startswith("macosx_"):
+                    machine = 0x0100000C if platform.endswith("_arm64") else 0x01000007
+                    for name in libraries:
+                        header = archive.read(name)[:8]
+                        require(
+                            header[:4] == b"\xcf\xfa\xed\xfe"
+                            and int.from_bytes(header[4:8], "little") == machine,
+                            "Bundled Mach-O architecture differs from the wheel tag",
+                        )
+                elif platform.startswith("win"):
+                    machine = 0xAA64 if platform == "win_arm64" else 0x8664
+                    for name in libraries:
+                        data = archive.read(name)
+                        offset = int.from_bytes(data[60:64], "little")
+                        require(
+                            data[:2] == b"MZ"
+                            and data[offset : offset + 4] == b"PE\x00\x00"
+                            and int.from_bytes(data[offset + 4 : offset + 6], "little") == machine,
+                            "Bundled PE architecture differs from the wheel tag",
+                        )
+                native_platforms.add(platform)
             native_count += 1
             if any(platform.endswith("_aarch64") for platform in platform_tag.split(".")):
                 arm64_count += 1
@@ -292,6 +320,15 @@ require(
     "No native wheel found; build and repair the Akiki wheel before publishing",
 )
 require(not args.require_arm64 or arm64_count > 0, "The experimental ARM64 native wheel is missing")
+require(
+    not args.require_desktop
+    or (
+        "win_amd64" in native_platforms
+        and any(re.fullmatch(r"macosx_\d+_\d+_x86_64", tag) for tag in native_platforms)
+        and any(re.fullmatch(r"macosx_\d+_\d+_arm64", tag) for tag in native_platforms)
+    ),
+    "Windows x64 and both macOS architecture wheels are required",
+)
 with tarfile.open(source) as archive:
     check_no_local_artifacts(archive.getnames())
 

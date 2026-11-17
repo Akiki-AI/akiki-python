@@ -547,8 +547,8 @@ jobs:
               raise SystemExit("Manual publication must use tagged package source; only CI/release docs may differ")
           PY
 
-      - name: Verify both native architectures before publishing
-        run: python3 verify_dist.py --all-wheels --require-native --require-arm64
+      - name: Verify all native platforms before publishing
+        run: python3 verify_dist.py --all-wheels --require-native --require-arm64 --require-desktop
 
       # No environment is set: the PyPI publisher was registered without one.
       - name: Publish with PyPI Trusted Publishing

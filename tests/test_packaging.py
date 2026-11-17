@@ -166,9 +166,9 @@ def packaged_project(tmp_path_factory):
     return project
 
 
-def verify_distributions(project, directory):
+def verify_distributions(project, directory, *arguments):
     return subprocess.run(
-        [sys.executable, str(project / "verify_dist.py"), "--dist-dir", str(directory)],
+        [sys.executable, str(project / "verify_dist.py"), "--dist-dir", str(directory), *arguments],
         cwd=project,
         capture_output=True,
         text=True,
@@ -191,6 +191,77 @@ def test_distributions_exclude_local_work_and_pass_release_verification(packaged
         assert not any("private.jsonl" in name or name.endswith(".ipynb") for name in names)
     result = verify_distributions(project, directory)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_release_requires_all_desktop_wheels_when_requested(packaged_project):
+    result = verify_distributions(packaged_project, packaged_project / "dist", "--require-desktop")
+    assert result.returncode != 0
+    assert "Windows x64 and both macOS architecture wheels are required" in result.stderr
+
+
+def test_release_metadata_accepts_windows_line_endings(packaged_project, tmp_path):
+    for path in (packaged_project / "dist").iterdir():
+        shutil.copy2(path, tmp_path / path.name)
+    wheel = next(tmp_path.glob("*.whl"))
+    with zipfile.ZipFile(wheel) as archive:
+        contents = {name: archive.read(name) for name in archive.namelist()}
+    metadata = next(name for name in contents if name.endswith(".dist-info/METADATA"))
+    contents[metadata] = contents[metadata].replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+    with zipfile.ZipFile(wheel, "w") as archive:
+        for name, data in contents.items():
+            archive.writestr(name, data)
+    result = verify_distributions(packaged_project, tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(
+    "tag,machine,valid",
+    [
+        ("win_amd64", 0x8664, True),
+        ("win_amd64", 0xAA64, False),
+        ("macosx_11_0_x86_64", 0x01000007, True),
+        ("macosx_11_0_x86_64", 0x0100000C, False),
+        ("macosx_11_0_arm64", 0x0100000C, True),
+        ("macosx_11_0_arm64", 0x01000007, False),
+    ],
+)
+def test_desktop_wheel_verification_checks_binary_architecture(
+    packaged_project, tmp_path, tag, machine, valid
+):
+    original = next((packaged_project / "dist").glob("*.whl"))
+    with zipfile.ZipFile(original) as archive:
+        contents = {name: archive.read(name) for name in archive.namelist()}
+    metadata = next(name for name in contents if name.endswith(".dist-info/WHEEL"))
+    contents[metadata] = contents[metadata].replace(
+        b"Root-Is-Purelib: true", b"Root-Is-Purelib: false"
+    )
+    contents[metadata] = contents[metadata].replace(b"py3-none-any", f"py3-none-{tag}".encode())
+    if tag.startswith("win"):
+        header = bytearray(70)
+        header[:2] = b"MZ"
+        struct.pack_into("<I", header, 60, 64)
+        header[64:68] = b"PE\x00\x00"
+        struct.pack_into("<H", header, 68, machine)
+        names = [f"akiki_{engine}_engine.dll" for engine in ("vad", "minilm")]
+    else:
+        header = b"\xcf\xfa\xed\xfe" + struct.pack("<I", machine)
+        names = [f"libakiki_{engine}_engine.dylib" for engine in ("vad", "minilm")]
+    for name in names:
+        contents["akiki/native/" + name] = bytes(header)
+    wheel = tmp_path / original.name.replace("-any.whl", f"-{tag}.whl")
+    with zipfile.ZipFile(wheel, "w") as archive:
+        for name, data in contents.items():
+            archive.writestr(name, data)
+    source = next((packaged_project / "dist").glob("*.tar.gz"))
+    shutil.copy2(source, tmp_path / source.name)
+    result = verify_distributions(
+        packaged_project, tmp_path, "--wheel", str(wheel), "--require-native"
+    )
+    if valid:
+        assert result.returncode == 0, result.stdout + result.stderr
+    else:
+        assert result.returncode != 0
+        assert "architecture differs from the wheel tag" in result.stderr
 
 
 @pytest.mark.parametrize(
