@@ -36,6 +36,83 @@ The base installation uses the Akiki engine on supported hosts.
 ONNX and PyTorch provide compatibility fallbacks for VAD.
 Install `akiki[onnx]` or `akiki[pytorch]` when you need a compatibility engine.
 
+### Windows and macOS
+
+Native wheels support Windows x64, macOS Intel, and macOS Apple Silicon.
+Each wheel includes the Akiki engine for VAD and decision models.
+Pip selects the wheel for your Python installation. No engine build is required.
+Windows ARM64 wheels are not available.
+The macOS wheels target macOS 11.0 or later.
+
+#### Windows (PowerShell)
+
+Use 64-bit x86 Python 3.10 or later.
+Run these commands in PowerShell:
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install akiki
+$env:HF_HUB_OFFLINE = "1"
+.\.venv\Scripts\python.exe -m akiki vad ".\recording.wav" --engine akiki
+.\.venv\Scripts\python.exe -m akiki vad --help
+```
+
+Use a mono, 16,000 Hz WAV file for `recording.wav`.
+To use an existing local MiniLM/BERT classifier, run:
+
+```powershell
+.\.venv\Scripts\python.exe -m akiki minilm --model "C:\models\my-classifier" "Please save my changes."
+```
+
+Replace `C:\models\my-classifier` with your local export directory.
+The `minilm` command gives direct access to the current decision-model runtime.
+Use [`DecisionModel`](#decision-models) to manage saved specialists through Python.
+
+#### macOS (Terminal)
+
+Use Python 3.10 or later.
+Use a Python installation that matches your Mac's architecture.
+Run these commands in Terminal:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install akiki
+export HF_HUB_OFFLINE=1
+.venv/bin/python -m akiki vad "./recording.wav" --engine akiki
+.venv/bin/python -m akiki vad --help
+```
+
+Use a mono, 16,000 Hz WAV file for `recording.wav`.
+To use an existing local MiniLM/BERT classifier, run:
+
+```bash
+.venv/bin/python -m akiki minilm --model "./models/my-classifier" "Please save my changes."
+```
+
+Replace `./models/my-classifier` with your local export directory.
+The Python VAD and decision-model APIs below are the same on all supported systems.
+
+#### VAD compatibility fallback
+
+If a native wheel is unavailable, use the ONNX compatibility fallback for VAD.
+Create a virtual environment as shown in your platform example above.
+On Windows, run:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install "akiki[onnx]"
+.\.venv\Scripts\python.exe -m akiki vad ".\recording.wav" --engine onnx
+```
+
+On macOS, run:
+
+```bash
+.venv/bin/python -m pip install 'akiki[onnx]'
+.venv/bin/python -m akiki vad "./recording.wav" --engine onnx
+```
+
+This fallback uses the bundled VAD model. It does not enable decision-model inference.
+PyTorch is the second VAD compatibility fallback.
+
 ## Python usage
 
 Use `akiki.vad` for VAD and `akiki.decision` for decision models.
@@ -139,6 +216,7 @@ ONNX and PyTorch are VAD compatibility fallbacks.
 
 Linux x86_64 wheels include the Akiki engine for systems with glibc 2.34 or later.
 Pip and uv select a compatible wheel automatically. No engine build is required.
+For Windows and macOS, see the [platform installation examples](#windows-and-macos).
 
 Version **0.1.2** includes **Linux ARM64 VAD support**, including Raspberry Pi 5
 with a 64-bit OS and glibc 2.28 or later. This wheel includes the Akiki VAD library
@@ -686,8 +764,10 @@ between texts. Keep the instance open until all worker calls have finished.
 longer than `model.max_tokens`. `encode_chunks()` requires complete token
 sequences and positive finite weights. It adds no special tokens.
 
-MiniLM requires the Akiki engine included in Linux x86_64 and ARM64 wheels;
-**ARM64 MiniLM support is experimental**. It has no ONNX or PyTorch alternative.
+MiniLM requires the Akiki engine included in native wheels.
+These wheels support Linux x86_64 and ARM64, Windows x64, and macOS Intel and Apple Silicon.
+See the [Windows and macOS examples](#windows-and-macos) for current wheel availability.
+**Linux ARM64 MiniLM support is experimental**. It has no ONNX or PyTorch alternative.
 It uses up to four CPU threads by default; set `threads` to change this.
 Projections use `akiki.decision.ModelPrecision.INT8` by default. To use the
 original weights:
