@@ -64,6 +64,14 @@ def check_no_local_artifacts(names):
     }
     for name in names:
         require(
+            not {"akiki_training", "akiki-training"}.intersection(Path(name).parts)
+            and not (
+                Path(name).name.startswith(("akiki_training-", "akiki-training-"))
+                and name.endswith((".whl", ".tar.gz"))
+            ),
+            f"Private training artifact must not be distributed: {name}",
+        )
+        require(
             not local_directories.intersection(Path(name).parts)
             and not name.endswith((".ipynb", ".pyc", ".pyo")),
             f"Local artifact must not be distributed: {name}",

@@ -736,7 +736,7 @@ required checkpoint files must already exist there.
 ## Training
 
 The private `akiki-training` project supplies Ariadne classifier training.
-Akiki 0.2.0 includes its API wrapper, not the trainer implementation.
+Akiki 0.2.1 includes its public API wrapper. The trainer implementation remains private.
 Training requires authorized access to a separate local companion installation.
 Ariadne adapts the query's representation so a frozen model can use its existing
 latent capabilities. The input affine is separate from the classification head.

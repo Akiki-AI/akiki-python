@@ -25,6 +25,8 @@ env:
   AKIKI_CACHE_DIR: ${{ github.workspace }}/.cache/models
   # Keep the native build tied to the tested engine source.
   AKIKI_INFERENCE_REV: f9411547bed3cd8159366c17458fdcc6427d4b15
+  # Build the private companion only for integration checks.
+  AKIKI_TRAINING_REV: b45ca19a3ba366b5b821a9a3e39ee7f0e4d3157f
 
 jobs:
   build:
@@ -266,10 +268,90 @@ jobs:
           compression-level: 0
           retention-days: 14
 
+  training:
+    name: Verify the private training companion
+    needs: build
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    env:
+      TRANSFORMERS_OFFLINE: "1"
+      AKIKI_MINILM_TEST_NATIVE: "1"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out Python package
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check out the pinned private training companion
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Akiki-AI/akiki-training
+          ref: ${{ env.AKIKI_TRAINING_REV }}
+          path: .cache/akiki-training
+          ssh-key: ${{ secrets.AKIKI_TRAINING_SSH_KEY }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Retrieve verified public x86_64 distributions
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: python-distributions-x86_64
+          path: dist/
+
+      - name: Install build and test tools
+        run: python -m pip install build "setuptools>=77.0.3" wheel pytest
+
+      # Keep the private wheel outside dist/. Do not upload it as an artifact.
+      - name: Build the private companion from source
+        run: |
+          python -m build --no-isolation --wheel \
+            --outdir "$PWD/verification/private-training" .cache/akiki-training
+
+      - name: Install the public wheel and private companion with CPU runtimes
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          public_wheels=(dist/akiki-*-manylinux_2_34_x86_64.whl)
+          private_wheels=(verification/private-training/*.whl)
+          test "${#public_wheels[@]}" -eq 1
+          test "${#private_wheels[@]}" -eq 1
+          python -m pip install "${public_wheels[0]}[training]" "${private_wheels[0]}[ariadne]"
+
+      - name: Require the installed training API and runtimes
+        run: |
+          python -I - <<'PY'
+          import akiki
+          import akiki_training
+          import safetensors
+          import torch
+          from akiki import training
+          from transformers import BertModel
+
+          assert training.Trainer is akiki_training.Trainer
+          assert training.train_intents is akiki_training.train_intents
+          print("Installed public wheel forwards the separately built private companion")
+          PY
+
+      # Tests generate tiny checkpoints locally. The installed wheel supplies the
+      # native engine. Override pytest's source path to test the installed package.
+      - name: Test training and native exports offline
+        run: |
+          python -m pytest -q -rs -o pythonpath= \
+            tests/test_training_api.py tests/test_specialist_training.py
+
+      - name: Verify public distributions after private integration checks
+        run: python verify_dist.py --all-wheels --require-native
+
   publish:
     name: Publish to PyPI
     if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.publish)
-    needs: [build, build-arm64]
+    needs: [build, build-arm64, training]
     runs-on: ubuntu-latest
     permissions:
       contents: read

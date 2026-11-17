@@ -5,9 +5,9 @@ features and usage. Build and publishing instructions belong here.
 
 ## Branches and release preparation
 
-Use `rc-0.2.0` for integration and release checks. Keep `main` unchanged until
-the code has passed human review.
-When the RC is ready, create `release-0.2.0` from the tested RC commit.
+Use `release-0.2.1` for this patch release and its integration checks.
+Create it from the tested `release-0.2.0` commit.
+Keep `main` unchanged until the code has passed human review.
 Set the release version on that branch before you build the release artifacts.
 Creating or pushing these branches does not publish a package to PyPI.
 The branch name does not set the package version. Read the current value with
@@ -46,12 +46,13 @@ directories and notebooks. `verify_dist.py` rejects local artifacts and
 unexpected package files in the built archives.
 
 The training implementation, dataset tools, and Lab remain private.
-Do not publish or bundle their code with Akiki 0.2.0.
+Do not publish or bundle their code with Akiki 0.2.1.
 The public package retains the training API wrapper.
 Its `training` extra installs runtime dependencies only.
 Authorized users must install the private companion from a local checkout or wheel.
 
-Test the public wrapper with a separate local companion wheel.
+Build the private companion from its pinned source revision for each release check.
+Test the public wrapper with that separate companion wheel.
 Check that base inference and server teacher imports work without that companion.
 Verify that public wheel metadata has no dependency on the unpublished companion.
 Verify that public archives contain no `akiki_training` package.
@@ -135,8 +136,9 @@ For VAD compatibility without the Akiki engine, install `akiki[onnx]` or `akiki[
 MiniLM still requires the Akiki engine. The base package requires neither compatibility runtime;
 verify that the extras remain independent in every release artifact.
 Run the training tests with the tested companion installed as well.
-Read the skipped-test summary; native release jobs do not install the training
-companion. Their default test run can skip the optional training checks.
+Read the skipped-test summary. Native build jobs do not install the training
+companion. The separate training job installs the companion and its runtimes.
+It runs the training checks against the installed x86_64 wheel.
 
 The Linux platform floor above was verified with auditwheel for the current
 library. It requires x86_64 and glibc 2.34 or newer. Auditwheel must succeed;
@@ -160,9 +162,19 @@ FP32; an explicit non-FP32 request must require the Akiki engine.
 The workflow is `.github/workflows/publish.yml`. It builds and verifies the
 portable wheel, source archive, Linux x86_64 native wheel, and experimental
 Linux ARM64 VAD and experimental MiniLM wheel. ARM64 builds in manylinux_2_28 on a native ARM64 runner;
-x86_64 retains the glibc 2.34 floor. Both jobs must pass before publishing. It tests the
+x86_64 retains the glibc 2.34 floor. Both build jobs must pass before publishing. It tests the
 native loader, Python API, and clean installations before saving the artifacts.
 Models come exclusively from `src/akiki/models/`; no model is downloaded.
+
+The training job also must pass before publishing.
+It checks out `Akiki-AI/akiki-training` at `AKIKI_TRAINING_REV`.
+It builds a private wheel under `verification/private-training/`.
+It installs that wheel with the verified public x86_64 wheel and CPU runtimes.
+It tests the training API, synthetic training, and native exports offline.
+It checks the public archives again after the integration tests.
+It does not upload the private wheel or companion source as a workflow artifact.
+The publish job retrieves only the public distributions from the build jobs.
+No manually built training wheel is required.
 
 Run the workflow manually on the RC or release branch to build and test without
 publishing. Leave the `publish` input disabled. Pushes to `main` also run these
@@ -198,6 +210,17 @@ private. Source checkout uses a dedicated read-only SSH deploy key:
 The private key must never be committed. It is used only for source checkout
 and is separate from PyPI Trusted Publishing. To rotate it, install a new
 public key and update the secret before deleting the old deploy key.
+
+Private training checkout uses a separate read-only SSH deploy key:
+
+1. Add its public key under `akiki-training` Settings > Deploy keys.
+   Leave Allow write access unchecked.
+2. Store its private key as the `AKIKI_TRAINING_SSH_KEY` Actions secret in
+   `akiki-python`.
+3. Pin a tested training commit in `AKIKI_TRAINING_REV`.
+
+Keep the training repository private. Do not add its source or wheel to `dist/`.
+Do not add a dependency on the unpublished companion to public package metadata.
 
 The x86_64 workflow targets glibc 2.34 and ARM64 targets glibc 2.28. Auditwheel must verify those floors;
 a build that needs newer libc symbols fails rather than publishing a renamed

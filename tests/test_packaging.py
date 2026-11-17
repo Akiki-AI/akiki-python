@@ -200,6 +200,15 @@ def test_distributions_exclude_local_work_and_pass_release_verification(packaged
         ("wheel", "akiki/stale_experiment.py", "Unexpected/missing package files"),
         ("sdist", "local-experiments/private.jsonl", "Local artifact must not be distributed"),
         ("sdist", "src/akiki/stale_experiment.py", "Unexpected/missing package files"),
+        ("wheel", "akiki_training/__init__.py", "Private training artifact"),
+        ("sdist", "src/akiki_training/__init__.py", "Private training artifact"),
+        ("sdist", "akiki-training/src/backend.py", "Private training artifact"),
+        (
+            "sdist",
+            "private/akiki_training-0.1.0-py3-none-any.whl",
+            "Private training artifact",
+        ),
+        ("sdist", "private/akiki-training-0.1.0.tar.gz", "Private training artifact"),
     ],
 )
 def test_release_verification_rejects_local_or_stale_files(

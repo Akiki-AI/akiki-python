@@ -82,7 +82,7 @@ from .vad import FFTPrecision as FFTPrecision
 from .vad import ModelPrecision as ModelPrecision
 from .vad import SpeechFrame as SpeechFrame
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 __all__ = [
     "MiniLM",
     "VAD",
