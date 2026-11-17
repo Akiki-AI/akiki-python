@@ -52,6 +52,34 @@ def test_mixed_architectures_are_rejected_and_arm64_minilm_is_allowed(tmp_path):
     assert setup.linux_platform([vad, minilm]) == "linux_aarch64"
 
 
+@pytest.mark.parametrize("machine,architecture", [(0x01000007, "x86_64"), (0x0100000C, "arm64")])
+def test_macos_wheel_uses_library_architecture_with_universal_python(
+    tmp_path, monkeypatch, machine, architecture
+):
+    setup = load_script("akiki_setup", "setup.py")
+    native = tmp_path / "libakiki_vad_engine.dylib"
+    native.write_bytes(b"\xcf\xfa\xed\xfe" + struct.pack("<I", machine))
+    monkeypatch.setenv("AKIKI_NATIVE_LIBRARY", str(native))
+    monkeypatch.setattr(
+        setup.bdist_wheel,
+        "get_tag",
+        lambda self: ("py3", "none", "macosx_11_0_universal2"),
+    )
+    wheel = setup.BdistWheel(setup.BinaryDistribution())
+    wheel.ensure_finalized()
+    assert wheel.get_tag() == ("py3", "none", f"macosx_11_0_{architecture}")
+
+
+def test_macos_wheel_rejects_mixed_library_architectures(tmp_path):
+    setup = load_script("akiki_setup", "setup.py")
+    vad = tmp_path / "libakiki_vad_engine.dylib"
+    minilm = tmp_path / "libakiki_minilm_engine.dylib"
+    vad.write_bytes(b"\xcf\xfa\xed\xfe" + struct.pack("<I", 0x01000007))
+    minilm.write_bytes(b"\xcf\xfa\xed\xfe" + struct.pack("<I", 0x0100000C))
+    with pytest.raises(ValueError, match="same architecture"):
+        setup.macos_platform([vad, minilm], "macosx_11_0_universal2")
+
+
 def test_arm64_cross_build_selects_both_engines_and_the_target_output(
     tmp_path, monkeypatch, capsys
 ):
@@ -223,6 +251,7 @@ def test_release_metadata_accepts_windows_line_endings(packaged_project, tmp_pat
         ("macosx_11_0_x86_64", 0x0100000C, False),
         ("macosx_11_0_arm64", 0x0100000C, True),
         ("macosx_11_0_arm64", 0x01000007, False),
+        ("macosx_11_0_universal2", 0x01000007, False),
     ],
 )
 def test_desktop_wheel_verification_checks_binary_architecture(

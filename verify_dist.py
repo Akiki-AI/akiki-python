@@ -285,7 +285,8 @@ for wheel in wheels:
                     for name in libraries:
                         header = archive.read(name)[:8]
                         require(
-                            header[:4] == b"\xcf\xfa\xed\xfe"
+                            platform.endswith(("_arm64", "_x86_64"))
+                            and header[:4] == b"\xcf\xfa\xed\xfe"
                             and int.from_bytes(header[4:8], "little") == machine,
                             "Bundled Mach-O architecture differs from the wheel tag",
                         )
