@@ -55,7 +55,7 @@ Original training scripts, datasets, code snapshots, and run histories belong
 to a separate training workspace. They are not included in this package.
 Reproducing the original VAD training requires that workspace, its existing
 data caches, and the recorded runtime. The optional `akiki-training` companion
-trains text classifiers; it does not reproduce this VAD training run.
+trains decision-model specialists in a separate workflow.
 Byte-identical reproduction requires the matching recorded execution environment.
 
 ## Recorded evaluation

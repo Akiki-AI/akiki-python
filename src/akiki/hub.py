@@ -1,4 +1,9 @@
-"""Explicit, optional Hugging Face downloads for local MiniLM inference."""
+"""Optional checkpoint retrieval for the current MiniLM/BERT decision runtime.
+
+This helper supports the current engine's file layout.
+Retrieving another model family does not add decision-model inference support.
+Ordinary VAD and decision inference use local files.
+"""
 
 import os
 from pathlib import Path

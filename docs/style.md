@@ -18,6 +18,13 @@ ONNX and PyTorch are VAD compatibility fallbacks.
 `Engine.AUTO` tries Akiki first, then ONNX, then PyTorch.
 Do not use the implementation language as the engine name.
 
+Describe the two primary interfaces as VAD and decision models.
+Use `akiki.vad.VAD` and `akiki.decision.DecisionModel` in API overviews.
+Describe MiniLM/BERT as the family supported by the current decision-model runtime.
+Use `MiniLM` for direct access to that family.
+Keep model discovery, training support, and inference support separate.
+Successful checkpoint inspection does not establish inference support.
+
 ## Enums and domain types
 
 Use a plain `enum.Enum` whenever a value represents a finite set of meaningful
@@ -38,9 +45,10 @@ with VAD(
     frames = detector.push([0.0] * 256)
 ```
 
-VAD and MiniLM also have distinct model precision domains. Use
+VAD and decision models also have distinct model precision domains. Use
 `akiki.vad.ModelPrecision` with `VAD` and `akiki.decision.ModelPrecision` with
-`MiniLM`; do not share enum types just because some serialized values match.
+`DecisionModel` or `MiniLM`.
+Do not share enum types just because some serialized values match.
 
 Validate enum types at public API boundaries. Reject strings and members of a
 different enum with `TypeError`; reject unsupported combinations of otherwise

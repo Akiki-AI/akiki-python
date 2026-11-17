@@ -1,25 +1,37 @@
-"""Local specialist classification and MiniLM text inference.
+"""Local decision models with frozen base checkpoints and saved specialists.
 
-``MiniLM`` loads a local plain checkpoint or Ariadne variant into the Akiki
-engine. ``encode`` returns an ``Encoding``; ``classify`` returns a
-``Classification`` with label probabilities. Configure numeric formats with
-this module's ``ModelPrecision`` enum, which is distinct from VAD's enum.
-MiniLM weights are not bundled.
-
-``DecisionModel`` classifies text with saved specialists through the native
-MiniLM engine, loading one model/adapter handle per specialist on first use.
+``DecisionModel`` is the primary interface for specialist decisions.
 Its ``base_model`` property selects the local frozen checkpoint.
 ``list_base_models()`` lists existing encoder snapshots in local Hugging Face
 caches as ``BaseModel`` descriptors, including input embedding table dimensions.
 Selection and discovery read metadata without loading model weights.
 
+The decision-model interface describes base models and specialists independently
+of a model family. Native inference currently supports MiniLM/BERT exports.
+``DecisionModel`` loads one base/adapter handle per specialist on first use.
+Other model families need an inference implementation supported by this binding.
+
+``MiniLM`` is the lower-level interface for direct embeddings and classification
+with the currently supported family. It loads a local plain checkpoint or Ariadne
+variant. ``encode`` returns an ``Encoding``. ``classify`` returns a
+``Classification`` with label probabilities. Configure numeric formats with
+this module's ``ModelPrecision`` enum, which is distinct from VAD's enum.
+Base weights are not bundled.
+
 Examples
 --------
->>> from akiki.decision import MiniLM, ModelPrecision
->>> with MiniLM(
-...     "path/to/local/MiniLM", model_precision=ModelPrecision.FP32
-... ) as model:  # doctest: +SKIP
-...     vector = model.embed("A sentence to encode.")
+Use an existing specialist with a compatible saved export::
+
+    >>> from akiki.decision import DecisionModel, Specialist
+    >>> specialist = Specialist(  # doctest: +SKIP
+    ...     intents={"question", "task"},
+    ...     examples={"What time is it?": "question", "Save this file.": "task"},
+    ...     cache_dir="path/to/saved-specialists",
+    ... )
+    >>> with DecisionModel("path/to/local/base-model") as model:  # doctest: +SKIP
+    ...     model.Specialists.add(specialist)
+    ...     result = model.classify("Please save my changes.")
+    ...     print(result.label)
 """
 
 from __future__ import annotations
@@ -221,10 +233,11 @@ class Specialist:
 
 
 class ModelPrecision(Enum):
-    """Native text weight and projection formats, distinct from VAD precision.
+    """Decision-model weight and projection formats, distinct from VAD precision.
 
     Pass a member to ``DecisionModel`` or ``MiniLM``. ``INT8`` is the default;
     ``INT4_G32`` adds the grouped INT4 format that VAD does not support.
+    These formats apply to the current MiniLM/BERT inference implementation.
     Attention, normalization, and pooling remain FP32 in every format.
     """
 
@@ -241,7 +254,11 @@ class ModelPrecision(Enum):
 
 
 class DecisionModel:
-    """Classify text with local specialists through the Akiki MiniLM engine.
+    """Classify text with a local base model and saved specialists.
+
+    This is the primary interface for decision models. Base-model selection
+    and specialist configuration are independent of the inference implementation.
+    The current Akiki engine supports MiniLM/BERT specialist exports.
 
     ``base_model`` accepts a local checkpoint path, a ``BaseModel`` returned by
     ``list_base_models()``, or an unambiguous cached repository name. It defaults
@@ -603,6 +620,9 @@ def _text(text):
 class MiniLM:
     """Encode text with a local MiniLM model: a plain checkpoint or an Ariadne variant.
 
+    This is the lower-level interface for the currently supported MiniLM/BERT
+    family. Use ``DecisionModel`` to select base models and classify saved specialists.
+
     A plain checkpoint, such as ``sentence-transformers/all-MiniLM-L6-v2``,
     produces sentence embeddings. Ariadne variants add an adapter to the frozen
     encoder: an input affine on the word embeddings, a linear head, or both.
@@ -650,7 +670,7 @@ class MiniLM:
     --------
     Compare sentences with a plain checkpoint::
 
-        >>> from akiki import MiniLM
+        >>> from akiki.decision import MiniLM
         >>> with MiniLM("path/to/local/MiniLM") as model:  # doctest: +SKIP
         ...     vectors = model.embed(["A man is eating food.", "Someone is eating a meal."])
         ...     print(float(vectors[0] @ vectors[1]))

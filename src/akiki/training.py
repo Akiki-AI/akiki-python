@@ -1,6 +1,6 @@
 """Forward the API of the separately installed private training companion.
 
-Use ``train_intents`` for intent classifiers, ``train`` with a configured
+Use ``train_intents`` for decision-model specialists, ``train`` with a configured
 trainer, and ``list_local_models`` to inspect existing local checkpoints.
 The companion package controls the available training implementations and
 supported checkpoint families.
@@ -23,7 +23,7 @@ The extra alone does not provide a trainer. Importing the wrapper does not load 
 or Transformers. Training and local teacher generation load optional runtimes
 when called. Dataset tools and Lab require separate companion packages.
 
-MiniLM/BERT exports in the supported native file layout can run through Akiki's text API.
+MiniLM/BERT exports in the supported native file layout can run through ``DecisionModel``.
 Other training families supported by the companion do not automatically gain
 native inference support in this package.
 """

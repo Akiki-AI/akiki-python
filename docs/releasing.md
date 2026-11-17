@@ -3,6 +3,11 @@
 The public PyPI description comes from `README.md`. Keep it focused on package
 features and usage. Build and publishing instructions belong here.
 
+Akiki provides VAD and decision models.
+The primary classes are `akiki.vad.VAD` and `akiki.decision.DecisionModel`.
+Current native decision inference supports MiniLM/BERT exports.
+The library filenames below retain the name of that implementation.
+
 ## Branches and release preparation
 
 Use `release-0.2.1` for this patch release and its integration checks.
@@ -61,9 +66,11 @@ Keep the private wheel and its validation outputs under `verification/`.
 ## Build the Linux x86_64 release
 
 Use an existing local Rust toolchain, Cargo cache and `akiki-inference` checkout.
-The x86_64 wheel includes VAD and MiniLM. Starting with 0.1.4, the ARM64 wheel
-also includes both engines. ARM64 MiniLM support is experimental. The existing
-pinned engine revision is used for both architectures.
+The x86_64 wheel includes the VAD and decision-model runtimes.
+The current decision runtime supports MiniLM/BERT exports.
+Starting with 0.1.4, the ARM64 wheel also includes both native libraries.
+ARM64 MiniLM/BERT inference is experimental.
+Use the existing pinned engine revision for both architectures.
 
 ```bash
 python3 tools/build_native.py --inference-dir "$AKIKI_INFERENCE_DIR"
@@ -81,16 +88,19 @@ python3 verify_dist.py --all-wheels --require-native
 These commands use cached build tools and dependencies. Models must come from
 the existing local package assets; never download model artifacts as part of
 a build. The portable wheel and source archive include the same model assets.
-The native wheel adds the compiled Akiki VAD and MiniLM libraries and is
-preferred by pip and uv on compatible hosts. `AKIKI_NATIVE_LIBRARY` lists the
+The native wheel adds the compiled Akiki VAD and decision-model libraries.
+The current decision library is named `libakiki_minilm_engine.so` on Linux.
+Pip and uv prefer the native wheel on compatible hosts. `AKIKI_NATIVE_LIBRARY` lists the
 libraries to bundle, separated by `:` (`;` on Windows); `verify_dist.py`
 requires both on x86_64 and ARM64. Linux wheel architecture is
 derived from the ELF libraries, so cross-built ARM64 libraries cannot be
 accidentally labelled as x86_64.
 
-## Build the Linux ARM64 VAD and experimental MiniLM wheel
+## Build the Linux ARM64 wheel
 
-On a native ARM64 Linux builder with cached tools and Cargo dependencies:
+The wheel includes VAD and the current MiniLM/BERT decision runtime.
+ARM64 support for this decision runtime is experimental.
+Use a native ARM64 Linux builder with cached tools and Cargo dependencies:
 
 ```bash
 python3 tools/build_native.py --inference-dir "$AKIKI_INFERENCE_DIR"
@@ -103,7 +113,8 @@ python3 verify_dist.py --all-wheels --require-native --require-arm64
 ```
 
 Build the source archive alongside the wheels before verification. The native
-build helper selects both VAD and MiniLM on ARM64. For cross-compilation, it also accepts
+build helper selects VAD and the current decision runtime on ARM64.
+For cross-compilation, it also accepts
 `--target aarch64-unknown-linux-gnu.2.28 --zig` with an existing ARM64 Rust std,
 `cargo-zigbuild`, and Zig installation. Cross-build output is under
 `.cache/native-target/aarch64-unknown-linux-gnu/release/`.
@@ -117,11 +128,14 @@ performance.
 CI also runs shared kernel/layer tests and quantized VAD streaming tests on its
 native ARM64 builder. Include THIRD_PARTY_NOTICES.txt in every artifact and
 preserve its Arm copyright and Apache-2.0 terms when updating the pinned engine.
-The package remains Alpha; MiniLM is supported in the Linux x86_64 and ARM64
-wheels, with ARM64 MiniLM support considered experimental.
+The package remains Alpha.
+The Linux x86_64 and ARM64 wheels support MiniLM/BERT decision-model exports.
+ARM64 support for this decision runtime remains experimental.
 
-MiniLM weights are never bundled. Users pass a local model path to
-`akiki.MiniLM`, or explicitly fetch a compatible checkpoint with
+Decision-model weights are never bundled.
+Users select a local base checkpoint through `DecisionModel.base_model`.
+The lower-level `akiki.decision.MiniLM` class gives direct access to this family.
+Users can explicitly fetch a compatible checkpoint with
 `MiniLM.from_pretrained()` or `akiki download` using the optional
 `akiki[huggingface]` extra. Model loading during release builds and tests must
 remain offline. CI can fetch pinned source and build dependencies.
@@ -133,8 +147,9 @@ release's recorded test predictions are checked automatically. Set
 `AKIKI_MINILM_REFERENCES` to PyTorch reference JSONL for that model, in the
 format of the engine's local-model tests, to check embeddings and logits.
 For VAD compatibility without the Akiki engine, install `akiki[onnx]` or `akiki[pytorch]`.
-MiniLM still requires the Akiki engine. The base package requires neither compatibility runtime;
-verify that the extras remain independent in every release artifact.
+Current decision-model inference requires the Akiki engine.
+The base package requires neither compatibility runtime.
+Verify that the extras remain independent in every release artifact.
 Run the training tests with the tested companion installed as well.
 Read the skipped-test summary. Native build jobs do not install the training
 companion. The separate training job installs the companion and its runtimes.
@@ -160,8 +175,10 @@ FP32; an explicit non-FP32 request must require the Akiki engine.
 ## Publish from GitHub Actions
 
 The workflow is `.github/workflows/publish.yml`. It builds and verifies the
-portable wheel, source archive, Linux x86_64 native wheel, and experimental
-Linux ARM64 VAD and experimental MiniLM wheel. ARM64 builds in manylinux_2_28 on a native ARM64 runner;
+portable wheel, source archive, and Linux x86_64 and ARM64 native wheels.
+The current decision runtime supports MiniLM/BERT exports.
+Its ARM64 support is experimental.
+ARM64 builds in manylinux_2_28 on a native ARM64 runner.
 x86_64 retains the glibc 2.34 floor. Both build jobs must pass before publishing. It tests the
 native loader, Python API, and clean installations before saving the artifacts.
 Models come exclusively from `src/akiki/models/`; no model is downloaded.
