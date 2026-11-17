@@ -1,11 +1,17 @@
 # Akiki VAD — release model, seed 1730
 
-Release ID: `teacher-only623-v2-s1730`. Bundled by `akiki==0.1.0`.
+Release ID: `teacher-only623-v2-s1730`. Bundled by `akiki==0.2.1`.
 
 CNN + GRU128, **210,561 parameters**, full-waveform FP32 ONNX with explicit
 recurrent state. Finite mono float32 audio at 16,000 Hz; **256 new samples per
-output (16 ms)** with 320 past context samples. Fixed threshold 0.5. Reset state
+output (16 ms)** with 320 past context samples. Default threshold 0.5. Reset state
 between independent recordings. Incomplete trailing frames are left pending.
+The Python API and CLI can override the decision threshold.
+
+The package also includes a matching PyTorch checkpoint and native safetensors
+export. The source weights are FP32. The Akiki engine defaults to a locally
+generated INT8 variant; ONNX and PyTorch inference use FP32.
+The recorded evaluation below describes the selected FP32 model.
 
 ## Training protocol
 
@@ -43,18 +49,14 @@ The other seeds were 1729 and 1731. The user designated seed 1730 for release
 **after reviewing the benchmark results**. This seed choice must not be described
 as independent of benchmark inspection.
 
-The frozen recipe is included in `training-recipe.json`. Exact code snapshots,
-input hashes, environment, histories and the other seeds are retained in the
-source experiment. On the training host, reproduce this seed with:
-
-```bash
-bash training/teacher-only623-v2/run.sh \
-  --seed 1730 --output experiments/reproduce-release-s1730
-```
-
-That command requires the existing repository, local data caches and recorded
-runtime; it does not download or retag data. Byte-identical reproducibility is
-scoped to the matching recorded execution environment.
+The frozen recipe is included in `training-recipe.json`. Model identity,
+selection details, and weight checksums are recorded in `release.json`.
+Original training scripts, datasets, code snapshots, and run histories belong
+to a separate training workspace. They are not included in this package.
+Reproducing the original VAD training requires that workspace, its existing
+data caches, and the recorded runtime. The optional `akiki-training` companion
+trains text classifiers; it does not reproduce this VAD training run.
+Byte-identical reproduction requires the matching recorded execution environment.
 
 ## Recorded evaluation
 

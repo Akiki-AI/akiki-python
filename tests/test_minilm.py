@@ -1,14 +1,14 @@
-from concurrent.futures import ThreadPoolExecutor
 import json
 import os
-from pathlib import Path
 import shutil
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import numpy as np
 import pytest
 
-from akiki import MiniLM
-from akiki.minilm import MODEL_PRECISIONS
+from akiki import vad
+from akiki.decision import MiniLM, ModelPrecision
 
 
 def words(n, start=0):
@@ -29,12 +29,36 @@ def test_missing_files_are_named(tmp_path):
         MiniLM(fake_model(tmp_path), tmp_path / "missing.safetensors")
 
 
-@pytest.mark.parametrize("options", [
-    dict(model_precision="fp8"), dict(threads=0), dict(threads=257), dict(threads=1.5), dict(threads=True),
-])
+@pytest.mark.parametrize(
+    "options",
+    [
+        dict(threads=0),
+        dict(threads=257),
+        dict(threads=1.5),
+        dict(threads=True),
+    ],
+)
 def test_invalid_options(tmp_path, options):
     with pytest.raises(ValueError):
         MiniLM(fake_model(tmp_path), **options)
+
+
+@pytest.mark.parametrize(
+    "precision",
+    [
+        *(precision.value for precision in ModelPrecision),
+        "fp8",
+        *vad.ModelPrecision,
+        vad.FFTPrecision.FP32,
+        vad.Engine.AKIKI,
+        None,
+        1,
+        [],
+    ],
+)
+def test_model_precision_requires_the_decision_enum(tmp_path, precision):
+    with pytest.raises(TypeError, match=r"akiki\.decision\.ModelPrecision"):
+        MiniLM(tmp_path, model_precision=precision)
 
 
 def test_missing_library_has_actionable_error(tmp_path, monkeypatch):
@@ -50,19 +74,23 @@ def test_engine_reports_why_a_model_cannot_load(tmp_path, require_minilm_library
 
 @pytest.fixture(scope="module")
 def plain(tiny_minilm, require_minilm_library):
-    with MiniLM(tiny_minilm.plain, model_precision="fp32") as model:
+    with MiniLM(tiny_minilm.plain, model_precision=ModelPrecision.FP32) as model:
         yield model
 
 
 @pytest.fixture(scope="module")
 def variant(tiny_minilm, require_minilm_library):
-    with MiniLM(tiny_minilm.variant, model_precision="fp32") as model:
+    with MiniLM(tiny_minilm.variant, model_precision=ModelPrecision.FP32) as model:
         yield model
 
 
 def test_plain_checkpoint_embeds_without_a_head(plain, tiny_minilm):
     assert (plain.adapter_path, plain.labels, plain.chunk_tokens) == (None, None, None)
-    assert (plain.embedding_size, plain.head_size, plain.max_tokens) == (tiny_minilm.hidden, 0, tiny_minilm.positions)
+    assert (plain.embedding_size, plain.head_size, plain.max_tokens) == (
+        tiny_minilm.hidden,
+        0,
+        tiny_minilm.positions,
+    )
     vector = plain.embed(words(9))
     assert vector.dtype == np.float32 and vector.shape == (tiny_minilm.hidden,)
     assert np.linalg.norm(vector) == pytest.approx(1, abs=1e-6)
@@ -116,34 +144,48 @@ def test_long_text_is_rejected_unless_chunked(plain, tiny_minilm):
 
 
 def test_chunking_combines_weighted_chunk_embeddings(plain, tiny_minilm, require_minilm_library):
-    with MiniLM(tiny_minilm.plain, model_precision="fp32", chunk_tokens=8) as chunked:
+    with MiniLM(tiny_minilm.plain, model_precision=ModelPrecision.FP32, chunk_tokens=8) as chunked:
         text = words(20, 7)
         tokens = plain.tokenize(text, special_tokens=False)
-        pieces = [tokens[i:i + 6] for i in range(0, len(tokens), 6)]
+        pieces = [tokens[i : i + 6] for i in range(0, len(tokens), 6)]
         chunks = [[1, *piece, 2] for piece in pieces]
         weights = [len(piece) for piece in pieces]
         assert weights == [6, 6, 6, 2]
         vectors = np.stack([plain.encode_chunks([chunk], [1]).embedding for chunk in chunks])
         expected = (vectors * np.array(weights)[:, None]).sum(0)
-        np.testing.assert_allclose(chunked.embed(text), expected / np.linalg.norm(expected), atol=1e-6)
-        np.testing.assert_array_equal(chunked.embed(text), plain.encode_chunks(chunks, weights).embedding)
+        np.testing.assert_allclose(
+            chunked.embed(text), expected / np.linalg.norm(expected), atol=1e-6
+        )
+        np.testing.assert_array_equal(
+            chunked.embed(text), plain.encode_chunks(chunks, weights).embedding
+        )
         long = words(3000)
         assert np.isfinite(chunked.embed(long)).all()
         np.testing.assert_allclose(chunked.embed(""), plain.embed(""), atol=1e-6)
 
 
 def test_retrieval_variant_chunks_at_its_max_length(plain, tiny_minilm, require_minilm_library):
-    with MiniLM(tiny_minilm.retrieval, model_precision="fp32") as model:
+    with MiniLM(tiny_minilm.retrieval, model_precision=ModelPrecision.FP32) as model:
         assert (model.chunk_tokens, model.head_size) == (8, 0)
         vector = model.embed(words(5))
         assert np.linalg.norm(vector) == pytest.approx(1, abs=1e-6)
         assert np.abs(vector - plain.embed(words(5))).max() > 1e-3, "the affine had no effect"
 
 
-@pytest.mark.parametrize("chunks,weights", [
-    ([], []), ([[1, 4, 2]], []), ([[1, 4, 2]], [0]), ([[1, 4, 2]], [float("nan")]), ([[]], [1]),
-    ([[1] * 49], [1]), ([[1, 40, 2]], [1]), ([[1, -4, 2]], [1]), ([[1.0, 4.0, 2.0]], [1]),
-])
+@pytest.mark.parametrize(
+    "chunks,weights",
+    [
+        ([], []),
+        ([[1, 4, 2]], []),
+        ([[1, 4, 2]], [0]),
+        ([[1, 4, 2]], [float("nan")]),
+        ([[]], [1]),
+        ([[1] * 49], [1]),
+        ([[1, 40, 2]], [1]),
+        ([[1, -4, 2]], [1]),
+        ([[1.0, 4.0, 2.0]], [1]),
+    ],
+)
 def test_invalid_chunks_are_rejected(plain, chunks, weights):
     with pytest.raises(ValueError):
         plain.encode_chunks(chunks, weights)
@@ -161,16 +203,16 @@ def test_invalid_variant_settings(tiny_minilm, tmp_path, require_minilm_library)
 
 
 def test_every_precision_loads(variant, tiny_minilm):
-    for precision in MODEL_PRECISIONS:
+    for precision in ModelPrecision:
         with MiniLM(tiny_minilm.variant, model_precision=precision, threads=2) as model:
-            assert (model.model_precision, model.threads) == (precision, 2)
-            if precision != "fp32":
+            assert model.model_precision is precision and model.threads == 2
+            if precision is not ModelPrecision.FP32:
                 assert model.model_bytes < variant.model_bytes
             vector = model.embed(words(11))
             assert np.linalg.norm(vector) == pytest.approx(1, abs=1e-5)
             assert float(vector @ variant.embed(words(11))) > 0.98
     with MiniLM(tiny_minilm.variant) as model:
-        assert model.model_precision == "int8"
+        assert model.model_precision is ModelPrecision.INT8
 
 
 def test_shared_instance_is_thread_safe(variant):
@@ -184,7 +226,11 @@ def test_closed_model_is_unusable(tiny_minilm, require_minilm_library):
     model = MiniLM(tiny_minilm.plain, threads=1)
     model.close()
     model.close()
-    for call in (lambda: model.embed("w4"), lambda: model.tokenize("w4"), lambda: model.encode_chunks([[1, 2]], [1])):
+    for call in (
+        lambda: model.embed("w4"),
+        lambda: model.tokenize("w4"),
+        lambda: model.encode_chunks([[1, 2]], [1]),
+    ):
         with pytest.raises(RuntimeError, match="closed"):
             call()
     with pytest.raises(RuntimeError, match="closed"):
@@ -197,12 +243,19 @@ CLOVER_LABELS = ("chat", "question", "build", "task", "fix", "unclear")
 
 def clover_text(message, context):
     prior = "\n".join(f"{turn['role']}: {turn['text']}" for turn in context)
-    return ("Conversation context:\n" + prior + "\n\n" if prior else "") + "Current user message: " + message
+    return (
+        ("Conversation context:\n" + prior + "\n\n" if prior else "")
+        + "Current user message: "
+        + message
+    )
 
 
 def test_clover_matches_recorded_reference_probabilities(minilm_model):
-    rows, references = minilm_model / "data/test.jsonl", minilm_model / "results/test-predictions.jsonl"
-    with MiniLM(minilm_model, model_precision="fp32") as model:
+    rows, references = (
+        minilm_model / "data/test.jsonl",
+        minilm_model / "results/test-predictions.jsonl",
+    )
+    with MiniLM(minilm_model, model_precision=ModelPrecision.FP32) as model:
         if model.labels != CLOVER_LABELS or not (rows.is_file() and references.is_file()):
             pytest.skip("AKIKI_MINILM_MODEL is not a Clover release with recorded test predictions")
         expected = {r["id"]: r for r in map(json.loads, references.read_text().splitlines())}
@@ -210,7 +263,9 @@ def test_clover_matches_recorded_reference_probabilities(minilm_model):
             result = model.classify(clover_text(row["message"], row["context"]))
             assert result.label == expected[row["id"]]["predicted"], row["id"]
             reference = [expected[row["id"]]["probabilities"][label] for label in CLOVER_LABELS]
-            np.testing.assert_allclose(result.probabilities, reference, atol=1e-4, err_msg=row["id"])
+            np.testing.assert_allclose(
+                result.probabilities, reference, atol=1e-4, err_msg=row["id"]
+            )
 
 
 def test_matches_pytorch_references(minilm_model):
@@ -220,7 +275,7 @@ def test_matches_pytorch_references(minilm_model):
     if not path:
         pytest.skip("Set AKIKI_MINILM_REFERENCES to local PyTorch reference JSONL for this model")
     adapter = os.environ.get("AKIKI_MINILM_ADAPTER")
-    with MiniLM(minilm_model, adapter, model_precision="fp32") as model:
+    with MiniLM(minilm_model, adapter, model_precision=ModelPrecision.FP32) as model:
         rows = [json.loads(line) for line in Path(path).read_text().splitlines()]
         for row in rows:
             if "text" in row:
@@ -230,8 +285,11 @@ def test_matches_pytorch_references(minilm_model):
             else:
                 encoding = model.encode_chunks(row["chunks"], row["weights"])
             if "reference_embedding" in row:
-                np.testing.assert_allclose(encoding.embedding, row["reference_embedding"], atol=1e-5,
-                                           err_msg=row["id"])
+                np.testing.assert_allclose(
+                    encoding.embedding, row["reference_embedding"], atol=1e-5, err_msg=row["id"]
+                )
             if "reference_logits" in row:
-                np.testing.assert_allclose(encoding.logits, row["reference_logits"], atol=1e-4, err_msg=row["id"])
+                np.testing.assert_allclose(
+                    encoding.logits, row["reference_logits"], atol=1e-4, err_msg=row["id"]
+                )
         assert rows, "Empty references do not validate parity"

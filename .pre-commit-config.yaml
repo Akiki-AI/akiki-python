@@ -1,0 +1,16 @@
+# Checks that run on staged files at every `git commit`.
+# Install the dev dependency group, then run `pre-commit install` once per clone.
+# Check every file without committing: `pre-commit run --all-files`.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.3
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+        # Warnings fail the commit too; rules are in .yamllint.yaml.
+        args: [--strict]

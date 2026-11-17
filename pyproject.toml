@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "akiki"
-version = "0.1.0"
+version = "0.2.1"
 description = "Local streaming voice activity detection and MiniLM text models"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.txt"]
 authors = [{name = "Akiki AI"}]
 keywords = ["vad", "audio", "speech", "voice-activity-detection", "minilm", "sentence-embeddings", "text-classification"]
 classifiers = [
@@ -21,8 +21,10 @@ classifiers = [
 dependencies = ["numpy>=1.24", "soundfile>=0.12"]
 
 [project.optional-dependencies]
+huggingface = ["huggingface-hub>=0.24"]
 onnx = ["onnxruntime>=1.17"]
 pytorch = ["torch>=2.1"]
+training = ["torch>=2.1", "transformers>=4.40,<6", "safetensors>=0.4"]
 
 [project.urls]
 Homepage = "https://huggingface.co/Akiki-AI"
@@ -30,8 +32,21 @@ Homepage = "https://huggingface.co/Akiki-AI"
 [project.scripts]
 akiki = "akiki.__main__:main"
 
+[dependency-groups]
+dev = [
+  "pre-commit>=4.0",
+  "pytest>=8.0",
+  "ruff==0.17.3",
+  "yamllint==1.38.0",
+]
+
+[tool.setuptools]
+include-package-data = false
+
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["akiki"]
+namespaces = false
 
 [tool.setuptools.package-data]
 akiki = ["models/*.onnx", "models/*.pt", "models/*.json", "models/*.md", "models/*.txt", "models/akiki-vad-native/*.json", "models/akiki-vad-native/*.safetensors"]
@@ -39,3 +54,22 @@ akiki = ["models/*.onnx", "models/*.pt", "models/*.json", "models/*.md", "models
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+required-version = "==0.17.3"
+extend-exclude = [".cache", "verification"]
+force-exclude = true
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["akiki"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+docstring-code-format = true

@@ -1,0 +1,15 @@
+# yamllint settings for every .yml/.yaml file, run by the pre-commit hook.
+extends: default
+
+rules:
+  # GitHub Actions workflows do not start with "---".
+  document-start: disable
+  # Allow the workflow's `on:` key; values must still be true or false.
+  truthy:
+    check-keys: false
+  # Pinned actions use one space before their version comment: `@sha # v7.0.1`.
+  comments:
+    min-spaces-from-content: 1
+  # Wrap long shell commands with `\` rather than raising this limit.
+  line-length:
+    max: 120
