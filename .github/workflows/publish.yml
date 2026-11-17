@@ -415,6 +415,15 @@ jobs:
               cwd=root,
               check=True,
           )
+          if sys.platform == "win32":
+              for _ in range(5):
+                  subprocess.run(
+                      [str(executable), "-m", "pytest", "-q", "-o", "pythonpath=",
+                       "tests/test_affine_cache.py::test_concurrent_saves_leave_one_complete_valid_layer",
+                       "tests/test_quantization.py::test_concurrent_first_use_produces_one_valid_variant"],
+                      cwd=root,
+                      check=True,
+                  )
           PY
 
       - name: Save the verified native wheel

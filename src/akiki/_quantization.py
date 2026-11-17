@@ -17,6 +17,7 @@ from pathlib import Path
 
 import numpy as np
 
+from ._atomic import replace_file
 from ._precision import ModelPrecision
 
 # AKVAD003 format IDs are fixed independently of enum declaration order.
@@ -187,7 +188,7 @@ def _atomic_write(path, data):
             stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        replace_file(temporary, path)
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
