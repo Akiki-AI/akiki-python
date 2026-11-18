@@ -127,15 +127,16 @@ jobs:
           import importlib.util
           from pathlib import Path
           import akiki
+          from akiki.audio.vad import VAD, Engine, FFTPrecision, ModelPrecision
           from akiki.decision import _load_library
           import numpy as np
 
           assert importlib.util.find_spec("onnxruntime") is None
           assert importlib.util.find_spec("torch") is None
-          with akiki.VAD() as vad:
-              assert vad.engine is akiki.Engine.AKIKI
-              assert vad.model_precision is akiki.ModelPrecision.INT8
-              assert vad.fft_precision is akiki.FFTPrecision.FP32
+          with VAD() as vad:
+              assert vad.engine is Engine.AKIKI
+              assert vad.model_precision is ModelPrecision.INT8
+              assert vad.fft_precision is FFTPrecision.FP32
               assert Path(vad._backend.lib._name).parent == Path(akiki.__file__).parent / "native"
               assert len(vad.push(np.zeros(256 * 3 + 17, np.float32))) == 3
           assert _load_library()[1].parent == Path(akiki.__file__).parent / "native"
@@ -151,7 +152,7 @@ jobs:
           "$RUNNER_TEMP/akiki-onnx/bin/python" -I - <<'PY'
           import importlib.util
           import numpy as np
-          from akiki import Engine, ModelPrecision, VAD
+          from akiki.audio.vad import VAD, Engine, ModelPrecision
 
           assert importlib.util.find_spec("torch") is None
           with VAD() as vad:
@@ -253,6 +254,7 @@ jobs:
           from pathlib import Path
           import akiki
           import numpy as np
+          from akiki.audio.vad import VAD, Engine, ModelPrecision
           from akiki.decision import _load_library
 
           assert akiki.__version__ == os.environ["AKIKI_EXPECTED_VERSION"]
@@ -262,8 +264,8 @@ jobs:
           assert {p.name for p in native.iterdir()} == {
               "libakiki_vad_engine.so", "libakiki_minilm_engine.so"
           }
-          with akiki.VAD() as vad:
-              assert vad.engine is akiki.Engine.AKIKI and vad.model_precision is akiki.ModelPrecision.INT8
+          with VAD() as vad:
+              assert vad.engine is Engine.AKIKI and vad.model_precision is ModelPrecision.INT8
               assert Path(vad._backend.lib._name).parent == native
               assert len(vad.push(np.zeros(256 * 3 + 17, np.float32))) == 3
           assert _load_library()[1].parent == native
@@ -398,15 +400,16 @@ jobs:
           from pathlib import Path
           import akiki
           import numpy as np
+          from akiki.audio.vad import VAD, Engine, FFTPrecision, ModelPrecision
           from akiki.decision import _load_library
 
           assert importlib.util.find_spec('onnxruntime') is None
           assert importlib.util.find_spec('torch') is None
           native = Path(akiki.__file__).parent / 'native'
-          with akiki.VAD() as vad:
-              assert vad.engine is akiki.Engine.AKIKI
-              assert vad.model_precision is akiki.ModelPrecision.INT8
-              assert vad.fft_precision is akiki.FFTPrecision.FP32
+          with VAD() as vad:
+              assert vad.engine is Engine.AKIKI
+              assert vad.model_precision is ModelPrecision.INT8
+              assert vad.fft_precision is FFTPrecision.FP32
               assert Path(vad._backend.lib._name).parent == native
               assert len(vad.push(np.zeros(256 * 3 + 17, np.float32))) == 3
           assert _load_library()[1].parent == native

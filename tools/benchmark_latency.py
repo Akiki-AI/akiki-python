@@ -25,7 +25,8 @@ def worker(args):
     import numpy as np
 
     import akiki
-    from akiki import VAD, Engine, __version__
+    from akiki import __version__
+    from akiki.audio.vad import VAD, Engine
 
     engine = (
         Engine.AUTO

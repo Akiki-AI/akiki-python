@@ -157,7 +157,7 @@ def _run_vad(args):
     """Print frame decisions for a local audio file using the requested engine."""
     import soundfile as sf
 
-    from . import VAD
+    from .audio.vad import VAD
 
     with (
         VAD(

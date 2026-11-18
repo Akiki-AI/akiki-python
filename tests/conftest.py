@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from akiki import VAD, Engine
+from akiki.audio.vad import VAD, Engine
 
 
 @pytest.fixture

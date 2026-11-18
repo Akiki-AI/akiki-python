@@ -14,6 +14,7 @@ import pytest
 import akiki
 from akiki import MiniLM, download_model
 from akiki.__main__ import main
+from akiki.audio import vad
 from akiki.decision import ModelPrecision
 
 
@@ -193,7 +194,7 @@ def test_download_cli_does_not_load_an_engine(fake_hub, tiny_minilm, tmp_path, m
         pytest.fail("Downloading a checkpoint must not load an inference engine")
 
     monkeypatch.setattr(akiki, "MiniLM", unexpected_load)
-    monkeypatch.setattr(akiki, "VAD", unexpected_load)
+    monkeypatch.setattr(vad, "VAD", unexpected_load)
     destination = tmp_path / "model"
     monkeypatch.setattr(
         sys,

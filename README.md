@@ -137,7 +137,7 @@ VAD and decision inference have distinct `ModelPrecision` enums.
 Their supported formats differ.
 `MiniLM` is the lower-level interface for direct embeddings and classification
 with the currently supported MiniLM/BERT family.
-The existing `akiki.VAD` and `akiki.MiniLM` shortcuts remain available.
+The `akiki.MiniLM` shortcut remains available.
 The existing top-level result types and VAD enums remain available as
 compatibility aliases. Import `training` explicitly when its optional companion
 package is installed; the base package does not load it.
@@ -148,7 +148,8 @@ modules remain accessible but are omitted from that list.
 The decision-model module is named `akiki.decision`. Existing imports from
 `akiki.minilm` remain available for compatibility and use the same classes
 and precision enum. Named top-level compatibility imports remain available.
-Existing imports from `akiki.vad` use the same classes and enums as `akiki.audio.vad`.
+`akiki.vad` and `akiki.VAD` are deprecated and will be removed in version 0.3.0.
+Use `from akiki.audio import vad` and call `vad.VAD()`.
 Wildcard imports expose only `VAD`, `MiniLM`, `audio`, `decision`, and `__version__`.
 
 ## Voice activity detection (VAD)

@@ -38,11 +38,11 @@ class BlockTraining(importlib.abc.MetaPathFinder):
 
 sys.meta_path.insert(0, BlockTraining())
 import akiki
-assert akiki.VAD is not None
+assert akiki.audio.vad.VAD is not None
 assert dir(akiki) == ['MiniLM', 'VAD', '__version__', 'audio', 'decision']
 namespace = {}
 exec('from akiki import *', namespace)
-assert namespace['audio'].vad.VAD is akiki.VAD
+assert namespace['audio'].vad.VAD is akiki.audio.vad.VAD
 assert namespace['decision'].MiniLM is akiki.MiniLM
 assert 'akiki.training' not in sys.modules
 import importlib

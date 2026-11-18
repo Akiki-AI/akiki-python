@@ -25,7 +25,7 @@ The public API is organized into four areas:
     server. Propose supplemental examples for retraining with ``Teacher``.
     This module is loaded only when explicitly imported.
 
-``VAD`` and ``MiniLM`` are also available directly from ``akiki`` as shortcuts.
+``MiniLM`` is also available directly from ``akiki`` as a shortcut.
 Import supporting result types and configuration enums from their respective
 modules. VAD and decision precision enums have different supported formats and
 are not interchangeable.
@@ -36,10 +36,10 @@ aliases and internal modules are omitted from this browsing view.
 
 Examples
 --------
-Process one frame of silence using the top-level shortcut::
+Process one frame of silence::
 
-    >>> import akiki
-    >>> with akiki.VAD() as detector:
+    >>> from akiki.audio import vad
+    >>> with vad.VAD() as detector:
     ...     frames = detector.push([0.0] * 256)
     >>> len(frames)
     1
@@ -61,7 +61,8 @@ Explicit model retrieval utilities live in ``akiki.hub``.
 
 Compatibility
 -------------
-``akiki.vad`` re-exports the VAD classes and enums from ``akiki.audio.vad``.
+``akiki.vad`` and ``akiki.VAD`` will be removed in version 0.3.0.
+Use ``from akiki.audio import vad`` and call ``vad.VAD()``.
 ``akiki.minilm`` remains a compatibility module. It re-exports the decision
 API's MiniLM class, result types, and current precision enum.
 Existing named top-level imports of ``SpeechFrame``, ``Engine``, ``ModelPrecision``,
@@ -76,10 +77,12 @@ __version__ : str
     Installed Akiki package version.
 """
 
+import warnings
+from importlib import import_module
+from typing import TYPE_CHECKING
+
 from . import audio, decision
 from . import minilm as minilm
-from . import vad as vad
-from .audio.vad import VAD
 from .audio.vad import Engine as Engine
 from .audio.vad import FFTPrecision as FFTPrecision
 from .audio.vad import ModelPrecision as ModelPrecision
@@ -89,6 +92,9 @@ from .decision import Encoding as Encoding
 from .decision import MiniLM
 from .hub import download_model as download_model
 
+if TYPE_CHECKING:
+    from .audio.vad import VAD as VAD
+
 __version__ = "0.2.2"
 __all__ = [
     "MiniLM",
@@ -97,6 +103,20 @@ __all__ = [
     "audio",
     "decision",
 ]
+
+
+def __getattr__(name: str):
+    if name == "VAD":
+        warnings.warn(
+            "akiki.VAD is deprecated and will be removed in version 0.3.0. "
+            "Use akiki.audio.vad.VAD instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return audio.vad.VAD
+    if name == "vad":
+        return import_module(".vad", __name__)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def __dir__() -> list[str]:
