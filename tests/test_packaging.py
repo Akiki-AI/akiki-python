@@ -208,6 +208,7 @@ def test_distributions_exclude_local_work_and_pass_release_verification(packaged
     directory = project / "dist"
     with zipfile.ZipFile(next(directory.glob("*.whl"))) as wheel:
         names = wheel.namelist()
+        assert "akiki/audio/vad.py" in names
         assert "akiki/decision.py" in names
         assert "akiki/vision/__init__.py" in names
         assert "akiki/vision/object_detection.py" in names

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from akiki import VAD, Engine, FFTPrecision, ModelPrecision
+from akiki.audio.vad import VAD, Engine, FFTPrecision, Model, ModelPrecision
 
 
 def test_primary_engine_uses_the_akiki_name():
@@ -110,13 +110,73 @@ def test_default_is_selected_release_checkpoint():
     model_dir = Path(akiki.__file__).parent / "models"
     metadata = json.loads((model_dir / "akiki-vad.json").read_text())
     assert akiki.__version__ == "0.2.2"
-    assert VAD().model_id == "teacher-only623-v2-s1730"
+    with VAD() as default, VAD(model=Model.AKIKI_VAD) as named:
+        assert default.model_id == named.model_id == "teacher-only623-v2-s1730"
+        assert default.push([0.0] * 256) == named.push([0.0] * 256)
     assert metadata["origin"]["seed"] == 1730
     assert metadata["release_selection"]["checkpoint_window"] == 31
     assert (
         hashlib.sha256((model_dir / "akiki-vad.onnx").read_bytes()).hexdigest()
         == "0fab56bc4ea6725ec881c35973e04813a4963dc5bbf4bf5ccfe8fd7cf468c6f5"
     )
+
+
+def test_named_ten_vad_streams_with_its_own_state(monkeypatch, tmp_path):
+    from akiki._engines import Backend
+    from akiki.audio import _ten_vad, _ten_vad_model
+
+    model_path = tmp_path / "weights.onnx"
+    native_path = tmp_path / "model.bin"
+    library_path = tmp_path / "engine.so"
+
+    class FakeTenVad(Backend):
+        chunk_samples = 256
+        hidden = 64
+        state_shape = (4, hidden)
+
+        @staticmethod
+        def load_library(path):
+            assert path == library_path
+            return library_path
+
+        def __init__(self, path, library):
+            assert path == native_path
+            assert library == library_path
+
+        def infer(self, window, state):
+            assert window.shape == (self.chunk_samples,)
+            return 0.25, state + 1
+
+    def prepare(path, cache):
+        assert path == model_path
+        assert cache is None
+        return native_path, b"fake ONNX data"
+
+    monkeypatch.setattr(_ten_vad_model, "prepare_model", prepare)
+    monkeypatch.setattr(_ten_vad, "TenVadBackend", FakeTenVad)
+    with VAD(model=Model.TEN_VAD, model_path=model_path, library_path=library_path) as detector:
+        assert detector.model_id == "ten-vad"
+        assert detector.model_precision is ModelPrecision.FP32
+        assert detector.threshold == 0.5
+        assert detector.push([0.0] * 128) == []
+        with pytest.raises(ValueError, match="requires audio samples"):
+            detector.push([0.0] * 256 + [1.5])
+        assert detector.completed_samples == 0
+        assert len(detector.pending) == 128
+        frames = detector.push([0.0] * 384)
+        assert [(frame.start_seconds, frame.end_seconds) for frame in frames] == [
+            (0.0, 0.016),
+            (0.016, 0.032),
+        ]
+        assert all(not frame.speech for frame in frames)
+        assert detector.context.size == 0
+        np.testing.assert_array_equal(detector.state, np.full((4, 64), 2))
+        detector.reset()
+        np.testing.assert_array_equal(detector.state, np.zeros((4, 64)))
+        assert detector.push([0.0] * 512) == frames
+
+    with pytest.raises(RuntimeError, match="closed"):
+        detector.push([])
 
 
 def test_engines_agree(engine):
@@ -227,6 +287,12 @@ def test_corrupt_native_model_is_not_hidden_by_fallback(tmp_path, precision):
             model_precision=precision,
             cache_dir=tmp_path / "cache",
         )
+
+
+@pytest.mark.parametrize("model", ["TEN-VAD", "akiki-vad", "unknown", Engine.AKIKI, None])
+def test_non_enum_model_is_rejected(model):
+    with pytest.raises(TypeError, match="model must be a Model member"):
+        VAD(model=model)
 
 
 @pytest.mark.parametrize("engine", ["auto", "akiki", "onnx", "pytorch", "unknown", None, 1, []])

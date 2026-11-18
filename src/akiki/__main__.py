@@ -9,8 +9,8 @@ import json
 from dataclasses import asdict
 
 from . import __version__
+from .audio.vad import Engine, FFTPrecision, ModelPrecision
 from .decision import ModelPrecision as MiniLMPrecision
-from .vad import Engine, FFTPrecision, ModelPrecision
 
 
 def main():
@@ -157,7 +157,7 @@ def _run_vad(args):
     """Print frame decisions for a local audio file using the requested engine."""
     import soundfile as sf
 
-    from . import VAD
+    from .audio.vad import VAD
 
     with (
         VAD(

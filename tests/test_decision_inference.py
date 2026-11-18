@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 from conftest import write_safetensors
 
-from akiki import decision, vad
+from akiki import decision
 from akiki._affine_cache import _base_identity, _digest
 from akiki._specialist_training import (
     TrainedSpecialist,
@@ -22,6 +22,7 @@ from akiki._specialist_training import (
     _root,
     _write_json,
 )
+from akiki.audio import vad
 from akiki.decision import DecisionModel, MiniLM, ModelPrecision, Specialist
 
 

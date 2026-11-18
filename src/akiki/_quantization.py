@@ -12,12 +12,11 @@ import math
 import os
 import struct
 import sys
-import tempfile
 from pathlib import Path
 
 import numpy as np
 
-from ._atomic import replace_file
+from ._atomic import write_bytes
 from ._precision import ModelPrecision
 
 # AKVAD003 format IDs are fixed independently of enum declaration order.
@@ -180,20 +179,6 @@ def default_cache_dir():
     return Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "akiki"
 
 
-def _atomic_write(path, data):
-    temporary = None
-    try:
-        with tempfile.NamedTemporaryFile(dir=path.parent, prefix=".tmp-", delete=False) as stream:
-            temporary = Path(stream.name)
-            stream.write(data)
-            stream.flush()
-            os.fsync(stream.fileno())
-        replace_file(temporary, path)
-    finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
-
-
 def cached_model(folder, receipt, precision: ModelPrecision, cache_dir, validate_source):
     """Return a checked variant; repair incomplete/corrupt derived cache entries."""
     identity = {
@@ -239,8 +224,8 @@ def cached_model(folder, receipt, precision: ModelPrecision, cache_dir, validate
     }
     try:
         directory.mkdir(parents=True, exist_ok=True)
-        _atomic_write(model, payload)
-        _atomic_write(manifest, (json.dumps(saved, sort_keys=True, indent=2) + "\n").encode())
+        write_bytes(model, payload)
+        write_bytes(manifest, (json.dumps(saved, sort_keys=True, indent=2) + "\n").encode())
     except OSError as error:
         raise RuntimeError(
             "Cannot write the Akiki model cache; set cache_dir or AKIKI_CACHE_DIR to a writable directory"

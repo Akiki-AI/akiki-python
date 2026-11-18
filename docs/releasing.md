@@ -4,7 +4,7 @@ The public PyPI description comes from `README.md`. Keep it focused on package
 features and usage. Build and publishing instructions belong here.
 
 Akiki provides VAD and decision models.
-The primary classes are `akiki.vad.VAD` and `akiki.decision.DecisionModel`.
+The primary classes are `akiki.audio.vad.VAD` and `akiki.decision.DecisionModel`.
 Current native decision inference supports MiniLM/BERT exports.
 The library filenames below retain the name of that implementation.
 
@@ -22,6 +22,10 @@ The public CI workflow runs lint and tests on pushes and pull requests.
 Its tests use public dependencies and synthetic local checkpoints.
 Private engine and training checks run on `main` and trusted manual builds.
 Fork PR jobs do not receive private checkout credentials.
+
+The trusted Linux x86-64 build tests Akiki-VAD and TEN-VAD on the Akiki engine
+and ONNX Runtime from an installed wheel. It builds the TEN-VAD library from
+the pinned engine checkout. The tests generate the TEN-VAD ONNX fixture locally.
 
 Use version tags to record releases and release candidates.
 For example, use `v0.2.1` for version `0.2.1` and `v0.2.2rc1` for `0.2.2rc1`.
@@ -195,9 +199,9 @@ target platforms before adding those wheels to `dist/`.
 Validate the Markdown and metadata with `twine check` for every new artifact.
 Test a clean install with both portable and platform wheels available and
 confirm that `VAD().engine is Engine.AKIKI`, loading the installed library
-(`Engine` is exported from `akiki`).
+(`Engine` is exported from `akiki.audio.vad`).
 Confirm that `VAD().model_precision is ModelPrecision.INT8` and
-`VAD().fft_precision is FFTPrecision.FP32` (both enums are exported from `akiki.vad`),
+`VAD().fft_precision is FFTPrecision.FP32` (both enums are exported from `akiki.audio.vad`),
 and that `akiki.decision._load_library()` loads the installed MiniLM
 library. When no precision is specified, ONNX and PyTorch compatibility engines use
 FP32; an explicit non-FP32 request must require the Akiki engine.

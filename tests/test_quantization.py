@@ -9,8 +9,8 @@ import numpy as np
 import pytest
 
 import akiki
-from akiki import VAD, Engine, FFTPrecision, ModelPrecision
 from akiki import _quantization as quant
+from akiki.audio.vad import VAD, Engine, FFTPrecision, ModelPrecision
 from akiki.decision import ModelPrecision as MiniLMPrecision
 
 

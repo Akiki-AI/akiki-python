@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from akiki import _engines, decision
-from akiki.vad import VAD, Engine, ModelPrecision
+from akiki.audio.vad import VAD, Engine, ModelPrecision
 
 
 @pytest.fixture(params=["win32", "darwin", "linux"])

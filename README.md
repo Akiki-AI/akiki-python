@@ -115,13 +115,13 @@ PyTorch is the second VAD compatibility fallback.
 
 ## Python usage
 
-Use `akiki.vad` for VAD and `akiki.decision` for decision models.
+Use `akiki.audio.vad` for VAD and `akiki.decision` for decision models.
 Use `akiki.vision.object_detection` for object detection.
 The training and teacher modules support the decision-model workflow:
 
 | Module | Main interface | Supporting types |
 | --- | --- | --- |
-| `akiki.vad` | `VAD` for speech detection | `SpeechFrame`, `Engine`, `ModelPrecision`, `FFTPrecision` |
+| `akiki.audio.vad` | `VAD` for speech detection | `SpeechFrame`, `Model`, `Engine`, `ModelPrecision`, `FFTPrecision` |
 | `akiki.vision.object_detection` | `ObjectDetector` for object detection | `Detection` |
 | `akiki.decision` | `DecisionModel` for specialist decisions | `BaseModel`, `Specialist`, `AffineLayer`, `TrainedSpecialist`, `SpecialistEvaluation`, `TrainingAdvice`, `list_base_models`, `Classification`, `ModelPrecision` |
 | `akiki.training` | Classifier training with a private companion | The installed companion's API, including `LocalModel`, `ModelFamily`, and `Trainer` |
@@ -130,8 +130,9 @@ The training and teacher modules support the decision-model workflow:
 Import the primary interfaces from their modules:
 
 ```python
-from akiki.vad import VAD
+from akiki.audio import vad
 from akiki.decision import DecisionModel, Specialist
+from akiki.vision import object_detection
 ```
 
 Import configuration enums and result types from the relevant module.
@@ -139,7 +140,7 @@ VAD and decision inference have distinct `ModelPrecision` enums.
 Their supported formats differ.
 `MiniLM` is the lower-level interface for direct embeddings and classification
 with the currently supported MiniLM/BERT family.
-The existing `akiki.VAD` and `akiki.MiniLM` shortcuts remain available.
+The `akiki.MiniLM` shortcut remains available.
 The existing top-level result types and VAD enums remain available as
 compatibility aliases. Import `training` explicitly when its optional companion
 package is installed; the base package does not load it.
@@ -150,7 +151,9 @@ modules remain accessible but are omitted from that list.
 The decision-model module is named `akiki.decision`. Existing imports from
 `akiki.minilm` remain available for compatibility and use the same classes
 and precision enum. Named top-level compatibility imports remain available.
-Wildcard imports expose only `VAD`, `MiniLM`, `vad`, `decision`, `vision`, and `__version__`.
+`akiki.vad` and `akiki.VAD` are deprecated and will be removed in version 0.3.0.
+Use `from akiki.audio import vad` and call `vad.VAD()`.
+Wildcard imports expose only `VAD`, `MiniLM`, `audio`, `decision`, `vision`, and `__version__`.
 
 ## Object detection
 
@@ -189,21 +192,21 @@ Akiki accepts mono audio sampled at 16,000 Hz.
 
 ```python
 import soundfile as sf
-from akiki import VAD
+from akiki.audio import vad
 
 audio, sample_rate = sf.read("recording.wav", dtype="float32")
 
-with VAD() as vad:
-    for frame in vad.push(audio, sample_rate=sample_rate):
+with vad.VAD() as detector:
+    for frame in detector.push(audio, sample_rate=sample_rate):
         print(frame.start_seconds, frame.end_seconds, frame.probability, frame.speech)
 ```
 
-For live audio, call `vad.push()` repeatedly with successive audio buffers.
+For live audio, call `detector.push()` repeatedly with successive audio buffers.
 Buffers can have any length; incomplete frames are retained for the next call.
-Call `vad.reset()` before starting a new recording. A final incomplete frame is
+Call `detector.reset()` before starting a new recording. A final incomplete frame is
 not padded or scored.
 
-Use `VAD(threshold=0.6)` to set the speech decision threshold. Every frame still
+Use `vad.VAD(threshold=0.6)` to set the speech decision threshold. Every frame still
 includes its probability, regardless of the threshold.
 
 The public API includes docstrings for editor hints and interactive help:
@@ -211,16 +214,49 @@ The public API includes docstrings for editor hints and interactive help:
 ```python
 import akiki
 
-help(akiki)  # Overview of vad, decision, training, and teacher
-help(akiki.vad)  # Speech detection, configuration, and result types
+help(akiki)  # Overview of audio, decision, training, and teacher
+help(akiki.audio.vad)  # Speech detection, configuration, and result types
 help(akiki.decision)  # Decision models, specialists, and result types
 help(akiki.decision.DecisionModel)  # Base-model selection and specialist inference
 help(akiki.decision.Specialist.train)  # Training parameters and saved exports
-help(akiki.VAD)  # Configuration, attributes, and streaming example
-help(akiki.VAD.__init__)  # Constructor parameters and defaults
-help(akiki.VAD.push)  # Audio input, buffering, results, and errors
-help(akiki.vad.SpeechFrame)  # Result fields and timestamp units
+help(akiki.audio.vad.VAD)  # Configuration, attributes, and streaming example
+help(akiki.audio.vad.VAD.__init__)  # Constructor parameters and defaults
+help(akiki.audio.vad.VAD.push)  # Audio input, buffering, results, and errors
+help(akiki.audio.vad.SpeechFrame)  # Result fields and timestamp units
 ```
+
+### Select the VAD model
+
+`vad.VAD()` and `vad.VAD(model=vad.Model.AKIKI_VAD)` load the bundled Akiki-VAD model.
+
+To use TEN-VAD, install `akiki[ten-vad]` and set `AKIKI_TEN_VAD_LIBRARY` to
+your local Akiki TEN-VAD shared library. You can also pass `library_path`.
+
+```python
+from akiki.audio import vad
+
+with vad.VAD(
+    model=vad.Model.TEN_VAD,
+    model_path="snapshot/src/onnx_model/ten-vad.onnx",
+) as detector:
+    frames = detector.push([0.0] * 256)
+```
+
+Keep the matching `src/coeff.h` in the snapshot. For a standalone ONNX file,
+keep `coeff.h` next to the file. The coefficients supply the audio frontend.
+TEN-VAD requires mono 16 kHz samples in `[-1, 1]` and runs in FP32.
+
+Omit `model_path` to use the supported snapshot already in the Hugging Face
+cache. Set `HF_HUB_OFFLINE=1` and configure `HF_HUB_CACHE` if you use a
+custom cache directory. [TEN-VAD model on Hugging Face](https://huggingface.co/TEN-framework/ten-vad)
+
+The first load prepares the model for the local Akiki TEN-VAD library. Later
+loads reuse the prepared data in the Akiki cache. The Akiki engine runs the
+network by default.
+
+To run the network in ONNX Runtime, install `akiki[onnx,ten-vad]` and pass
+`engine=vad.Engine.ONNX`. TEN-VAD uses the same local Akiki library to
+extract audio features for both engines.
 
 ### Command line
 
@@ -320,7 +356,7 @@ Choose another precision when creating the detector. For example, to use the
 original FP32 weights:
 
 ```python
-from akiki.vad import VAD, Engine, ModelPrecision
+from akiki.audio.vad import VAD, Engine, ModelPrecision
 
 with VAD(engine=Engine.AKIKI, model_precision=ModelPrecision.FP32) as vad:
     frames = vad.push(audio, sample_rate=sample_rate)
@@ -342,7 +378,7 @@ akiki vad recording.wav --model-precision fp32
 | `ModelPrecision.INT8_FP32_INPUT` | INT8 weights; first projection keeps FP32 activations |
 
 The Python VAD API requires `ModelPrecision` and `FFTPrecision` enum members,
-both exported from `akiki.vad`. Omit `model_precision` or pass `None` to use the
+both exported from `akiki.audio.vad`. Omit `model_precision` or pass `None` to use the
 selected engine's default. CLI precision options retain their lowercase names.
 
 The FFT stays FP32: `fft_precision` accepts only `FFTPrecision.FP32`. Recurrent state,

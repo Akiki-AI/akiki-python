@@ -1,8 +1,6 @@
-"""Optional checkpoint retrieval for the current MiniLM/BERT decision runtime.
+"""Optional checkpoint retrieval from the Hugging Face Hub.
 
-This helper supports the current engine's file layout.
-Retrieving another model family does not add decision-model inference support.
-Ordinary VAD and decision inference use local files.
+The public download_model helper supports MiniLM/BERT decision models.
 """
 
 import os
@@ -66,30 +64,15 @@ def download_model(
         ...     "sentence-transformers/all-MiniLM-L6-v2", local_files_only=True
         ... )
     """
-    try:
-        from huggingface_hub import snapshot_download
-    except ImportError as error:
-        raise RuntimeError(
-            "Hugging Face support requires the optional dependency: "
-            "pip install 'akiki[huggingface]'"
-        ) from error
-
-    offline = os.environ.get("HF_HUB_OFFLINE", "").strip().upper() in {"1", "ON", "YES", "TRUE"}
-    try:
-        snapshot = snapshot_download(
-            repo_id=repo_id,
-            revision=revision,
-            cache_dir=Path(cache_dir).expanduser() if cache_dir is not None else None,
-            local_dir=Path(local_dir).expanduser() if local_dir is not None else None,
-            local_files_only=local_files_only or offline,
-            token=token,
-            allow_patterns=list(_MODEL_FILES),
-        )
-    except Exception as error:
-        # Hub HTTP exception types differ across supported dependency versions.
-        raise RuntimeError(f"Could not resolve Hugging Face model {repo_id!r}: {error}") from error
-
-    root = Path(snapshot)
+    root = _download_snapshot(
+        repo_id,
+        allow_patterns=_MODEL_FILES,
+        revision=revision,
+        cache_dir=cache_dir,
+        local_dir=local_dir,
+        local_files_only=local_files_only,
+        token=token,
+    )
     if (root / "base_model").is_dir() and all(
         (root / name).is_file() for name in _CHECKPOINT_FILES
     ):
@@ -107,3 +90,38 @@ def download_model(
             "Hugging Face snapshot is missing required MiniLM files: " + ", ".join(missing)
         )
     return root
+
+
+def _download_snapshot(
+    repo_id: str,
+    *,
+    allow_patterns: tuple[str, ...],
+    revision: str | None = None,
+    cache_dir: str | Path | None = None,
+    local_dir: str | Path | None = None,
+    local_files_only: bool = False,
+    token: str | bool | None = None,
+) -> Path:
+    try:
+        from huggingface_hub import snapshot_download
+    except ImportError as error:
+        raise RuntimeError(
+            "Hugging Face support requires the optional dependency: "
+            "pip install 'akiki[huggingface]'"
+        ) from error
+
+    offline = os.environ.get("HF_HUB_OFFLINE", "").strip().upper() in {"1", "ON", "YES", "TRUE"}
+    try:
+        snapshot = snapshot_download(
+            repo_id=repo_id,
+            revision=revision,
+            cache_dir=Path(cache_dir).expanduser() if cache_dir is not None else None,
+            local_dir=Path(local_dir).expanduser() if local_dir is not None else None,
+            local_files_only=local_files_only or offline,
+            token=token,
+            allow_patterns=list(allow_patterns),
+        )
+    except Exception as error:
+        # Hub HTTP exception types differ across supported dependency versions.
+        raise RuntimeError(f"Could not resolve Hugging Face model {repo_id!r}: {error}") from error
+    return Path(snapshot)

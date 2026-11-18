@@ -11,6 +11,7 @@ import soundfile as sf
 
 import akiki
 from akiki.__main__ import main
+from akiki.audio import vad
 from akiki.decision import ModelPrecision as MiniLMPrecision
 
 
@@ -144,7 +145,7 @@ def test_help_and_version_do_not_load_an_engine(arguments, expected, monkeypatch
     def unexpected_engine_load(*args, **kwargs):
         pytest.fail("Help and version must work without an inference engine")
 
-    monkeypatch.setattr(akiki, "VAD", unexpected_engine_load)
+    monkeypatch.setattr(vad, "VAD", unexpected_engine_load)
     monkeypatch.setattr(akiki, "MiniLM", unexpected_engine_load)
     monkeypatch.setitem(sys.modules, "huggingface_hub", None)
     monkeypatch.setattr(sys, "argv", ["akiki", *arguments])
@@ -193,7 +194,7 @@ def test_vad_engine_errors_include_the_command_prefix(monkeypatch, capsys):
     def unavailable_engine(*args, **kwargs):
         raise RuntimeError("No compatible engine")
 
-    monkeypatch.setattr(akiki, "VAD", unavailable_engine)
+    monkeypatch.setattr(vad, "VAD", unavailable_engine)
     monkeypatch.setattr(sys, "argv", ["akiki", "vad", "recording.wav"])
     with pytest.raises(SystemExit) as error:
         main()

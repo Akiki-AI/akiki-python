@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from akiki import vad
+from akiki.audio import vad
 from akiki.decision import MiniLM, ModelPrecision
 
 

@@ -57,24 +57,31 @@ class Backend:
         self.closed = True
 
 
+def _require_onnx_runtime():
+    try:
+        import onnxruntime as ort
+    except (ImportError, OSError) as error:
+        raise EngineUnavailable(
+            "Install the ONNX engine with: pip install 'akiki[onnx]'"
+        ) from error
+    return ort
+
+
+def _create_onnx_session(ort, model: str | bytes):
+    options = ort.SessionOptions()
+    options.intra_op_num_threads = options.inter_op_num_threads = 1
+    try:
+        return ort.InferenceSession(model, sess_options=options, providers=["CPUExecutionProvider"])
+    except Exception as error:
+        raise EngineUnavailable(f"ONNX Runtime could not load the model: {error}") from error
+
+
 class OnnxBackend(Backend):
     def __init__(self, path, metadata):
-        try:
-            import onnxruntime as ort
-        except (ImportError, OSError) as error:
-            raise EngineUnavailable(
-                "Install the ONNX engine with: pip install 'akiki[onnx]'"
-            ) from error
+        ort = _require_onnx_runtime()
         path = path.with_suffix(".onnx")
         verify_file(path, metadata["onnx_sha256"])
-        options = ort.SessionOptions()
-        options.intra_op_num_threads = options.inter_op_num_threads = 1
-        try:
-            self.session = ort.InferenceSession(
-                str(path), sess_options=options, providers=["CPUExecutionProvider"]
-            )
-        except Exception as error:
-            raise EngineUnavailable(f"ONNX Runtime could not load the model: {error}") from error
+        self.session = _create_onnx_session(ort, str(path))
         if {v.name for v in self.session.get_inputs()} != {"audio_with_context", "h"}:
             raise ValueError("Unexpected ONNX inputs")
 

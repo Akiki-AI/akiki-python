@@ -7,7 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-# Shared libraries loaded by akiki.VAD and akiki.MiniLM.
+# Shared libraries loaded by akiki.audio.vad.VAD and akiki.MiniLM.
 PACKAGES = ("akiki-vad-engine", "akiki-minilm-engine")
 
 

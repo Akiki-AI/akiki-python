@@ -47,7 +47,7 @@ package_dir = root / "src/akiki"
 model_dir = package_dir / "models"
 python_modules = {
     "akiki/" + path.relative_to(package_dir).as_posix(): path
-    for package in (package_dir, package_dir / "vision")
+    for package in (package_dir, package_dir / "audio", package_dir / "vision")
     for path in package.glob("*.py")
 }
 expected_id = "teacher-only623-v2-s1730"
@@ -131,7 +131,7 @@ def check_metadata(data):
     )
     require(
         set(metadata.get_all("Provides-Extra") or [])
-        == {"huggingface", "onnx", "pytorch", "training"},
+        == {"huggingface", "onnx", "pytorch", "ten-vad", "training"},
         "Missing optional feature extras",
     )
     require(
@@ -142,6 +142,8 @@ def check_metadata(data):
             'huggingface-hub>=0.24; extra == "huggingface"',
             'onnxruntime>=1.17; extra == "onnx"',
             'torch>=2.1; extra == "pytorch"',
+            'huggingface-hub>=0.24; extra == "ten-vad"',
+            'onnx>=1.16; extra == "ten-vad"',
             'torch>=2.1; extra == "training"',
             'transformers<6,>=4.40; extra == "training"',
             'safetensors>=0.4; extra == "training"',
@@ -236,10 +238,7 @@ for wheel in wheels:
             )
         info["model"] = check_models(archive.read, archive.namelist())
         for name, path in python_modules.items():
-            require(
-                archive.read(name) == path.read_bytes(),
-                f"Stale Python module: {name}",
-            )
+            require(archive.read(name) == path.read_bytes(), f"Stale Python module: {name}")
         libraries = [
             name
             for name in archive.namelist()

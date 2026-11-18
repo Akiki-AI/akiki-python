@@ -24,6 +24,7 @@ dependencies = ["numpy>=1.24", "soundfile>=0.12"]
 huggingface = ["huggingface-hub>=0.24"]
 onnx = ["onnxruntime>=1.17"]
 pytorch = ["torch>=2.1"]
+ten-vad = ["huggingface-hub>=0.24", "onnx>=1.16"]
 training = ["torch>=2.1", "transformers>=4.40,<6", "safetensors>=0.4"]
 
 [project.urls]
@@ -45,7 +46,7 @@ include-package-data = false
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["akiki", "akiki.vision"]
+include = ["akiki", "akiki.audio", "akiki.vision"]
 namespaces = false
 
 [tool.setuptools.package-data]

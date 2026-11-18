@@ -765,7 +765,7 @@ class MiniLM:
             ``INT8``, ``INT8_FP32_INPUT``, ``INT4``, or ``INT4_G32``. Weights are
             converted in memory when loading; the files are unchanged.
             Attention, normalization, and pooling remain FP32. Strings and
-            members of ``akiki.vad.ModelPrecision`` are rejected.
+            members of ``akiki.audio.vad.ModelPrecision`` are rejected.
         chunk_tokens : int, optional
             Split text into chunks of at most this many tokens, including two
             special tokens, as Ariadne retrieval models do. Defaults to the

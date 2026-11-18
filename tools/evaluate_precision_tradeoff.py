@@ -26,7 +26,8 @@ import numpy as np
 import soundfile as sf
 from sklearn.metrics import average_precision_score, precision_recall_fscore_support
 
-from akiki import VAD, Engine, FFTPrecision, ModelPrecision, __version__
+from akiki import __version__
+from akiki.audio.vad import VAD, Engine, FFTPrecision, ModelPrecision
 
 MODES = tuple(ModelPrecision)
 
