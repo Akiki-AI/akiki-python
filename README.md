@@ -216,9 +216,13 @@ Omit `model_path` to use the supported snapshot already in the Hugging Face
 cache. Set `HF_HUB_OFFLINE=1` and configure `HF_HUB_CACHE` if you use a
 custom cache directory. [TEN-VAD model on Hugging Face](https://huggingface.co/TEN-framework/ten-vad)
 
-The first load converts the ONNX weights for the Akiki engine. Later loads
-reuse the converted weights in the Akiki cache. The Akiki engine processes
-all audio frames.
+The first load prepares the model for the local Akiki TEN-VAD library. Later
+loads reuse the prepared data in the Akiki cache. The Akiki engine runs the
+network by default.
+
+To run the network in ONNX Runtime, install `akiki[onnx,ten-vad]` and pass
+`engine=vad.Engine.ONNX`. TEN-VAD uses the same local Akiki library to
+extract audio features for both engines.
 
 ### Command line
 

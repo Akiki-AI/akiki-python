@@ -150,7 +150,7 @@ def test_named_ten_vad_streams_with_its_own_state(monkeypatch, tmp_path):
     def prepare(path, cache):
         assert path == model_path
         assert cache is None
-        return native_path
+        return native_path, b"fake ONNX data"
 
     monkeypatch.setattr(_ten_vad_model, "prepare_model", prepare)
     monkeypatch.setattr(_ten_vad, "TenVadBackend", FakeTenVad)

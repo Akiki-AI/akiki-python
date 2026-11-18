@@ -92,6 +92,12 @@ jobs:
       - name: Build native engines offline
         run: python tools/build_native.py --inference-dir .cache/akiki-inference
 
+      - name: Build the local TEN-VAD library for runtime tests
+        run: |
+          cargo build --offline --locked --release --lib -p akiki-ten-vad-engine \
+            --manifest-path .cache/akiki-inference/Cargo.toml \
+            --target-dir .cache/native-target
+
       - name: Build portable wheel and source archive
         run: python -m build --no-isolation
 
@@ -142,6 +148,16 @@ jobs:
           assert _load_library()[1].parent == Path(akiki.__file__).parent / "native"
           print("Native wheel: bundled Akiki engines, INT8, base dependencies only")
           PY
+
+      - name: Test both VAD models on both CPU runtimes from the installed wheel
+        env:
+          AKIKI_TEST_VAD_RUNTIMES: "1"
+        run: |
+          python="$RUNNER_TEMP/akiki-native/bin/python"
+          wheels=(dist/akiki-*-manylinux_2_34_x86_64.whl)
+          "$python" -m pip install "${wheels[0]}[onnx,ten-vad]" pytest
+          AKIKI_TEN_VAD_LIBRARY="$PWD/.cache/native-target/release/libakiki_ten_vad_engine.so" \
+            "$python" -m pytest -q -o pythonpath= tests/test_vad_runtimes.py
 
       - name: Test portable wheel with the ONNX extra
         run: |

@@ -180,8 +180,10 @@ def _convert(model_data: bytes, coefficients: bytes) -> bytes:
     return _NATIVE_MAGIC + b"".join(array.astype("<f4", copy=False).tobytes() for array in arrays)
 
 
-def prepare_model(model_path: str | Path | None, cache_dir: str | Path | None) -> Path:
-    """Return a checked native cache entry for the selected TEN-VAD ONNX files."""
+def prepare_model(
+    model_path: str | Path | None, cache_dir: str | Path | None
+) -> tuple[Path, bytes]:
+    """Return the checked native cache entry and its source ONNX bytes."""
     weights, coefficients = _read_sources(model_path)
     key = hashlib.sha256(
         _CONVERTER_VERSION
@@ -199,7 +201,7 @@ def prepare_model(model_path: str | Path | None, cache_dir: str | Path | None) -
             and cached.startswith(_NATIVE_MAGIC)
             and hashlib.sha256(cached).hexdigest().encode() == checksum.read_bytes()
         ):
-            return model
+            return model, weights
     except OSError:
         pass
 
@@ -212,4 +214,4 @@ def prepare_model(model_path: str | Path | None, cache_dir: str | Path | None) -
         raise RuntimeError(
             "Cannot write the TEN-VAD model cache. Set cache_dir or AKIKI_CACHE_DIR."
         ) from error
-    return model
+    return model, weights

@@ -87,7 +87,8 @@ class VAD:
     The Akiki engine is the primary engine. For Akiki-VAD, ``Engine.AUTO``
     tries it first, then ONNX, then PyTorch. The Akiki engine uses INT8 by
     default for Akiki-VAD. The compatibility engines use FP32.
-    TEN-VAD uses the Akiki engine with FP32.
+    TEN-VAD uses FP32 and selects the Akiki engine by default.
+    With ``Engine.ONNX``, the Akiki frontend supplies features to ONNX Runtime.
     See ``VAD.__init__`` for all constructor options.
 
     Use the detector as a context manager or call ``close()`` when finished.
@@ -190,9 +191,11 @@ class VAD:
             ONNX and PyTorch are compatibility fallbacks, in that order.
             An explicitly selected engine must succeed; it does not fall back.
             Pass an ``Engine`` member, such as ``Engine.AKIKI``.
+            For TEN-VAD, select ``Engine.ONNX`` to run the network in ONNX Runtime.
+            Both TEN-VAD engines require the local Akiki TEN-VAD library.
         library_path : str or pathlib.Path, optional
-            Specific local Akiki shared library to load. Affects only the Akiki
-            engine. If omitted, use ``AKIKI_VAD_LIBRARY`` or the bundled
+            Specific local Akiki shared library to load. For Akiki-VAD, this
+            applies to the Akiki engine. If omitted, use ``AKIKI_VAD_LIBRARY`` or the bundled
             Akiki-VAD library. For TEN-VAD, use ``AKIKI_TEN_VAD_LIBRARY``
             or pass its library path here.
         model_precision : ModelPrecision, optional
@@ -290,18 +293,25 @@ class VAD:
     def _load_ten_vad(
         self, model_path, threshold, engine, library_path, model_precision, cache_dir
     ):
-        from ._ten_vad import TenVadBackend
+        from ._ten_vad import TenVadBackend, TenVadOnnxBackend
         from ._ten_vad_model import prepare_model
 
-        if engine not in (Engine.AUTO, Engine.AKIKI):
-            raise ValueError("TEN-VAD requires the Akiki engine")
+        if engine is Engine.PYTORCH:
+            raise ValueError("TEN-VAD supports the Akiki and ONNX engines")
         if model_precision not in (None, ModelPrecision.FP32):
             raise ValueError("TEN-VAD requires ModelPrecision.FP32")
         self.threshold = self._validate_threshold(0.5 if threshold is None else threshold)
-        library = TenVadBackend.load_library(library_path)
-        native_path = prepare_model(model_path, cache_dir)
-        self._backend = TenVadBackend(native_path, library)
-        self.engine, self.engine_errors = Engine.AKIKI, {}
+        backend = TenVadOnnxBackend if engine is Engine.ONNX else TenVadBackend
+        library = backend.load_library(library_path)
+        native_path, model_data = prepare_model(model_path, cache_dir)
+        if engine is Engine.ONNX:
+            self._backend = backend(native_path, library, model_data)
+            self.engine = Engine.ONNX
+            self.session = self._backend.session
+        else:
+            self._backend = backend(native_path, library)
+            self.engine = Engine.AKIKI
+        self.engine_errors = {}
         self.model_id = Model.TEN_VAD.value
         self.model_precision = ModelPrecision.FP32
         self.chunk_samples = self._backend.chunk_samples

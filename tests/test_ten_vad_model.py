@@ -62,13 +62,14 @@ def test_local_onnx_reuses_and_repairs_native_cache(tmp_path, monkeypatch):
     monkeypatch.setattr(_ten_vad_model, "_convert", convert)
 
     cache = tmp_path / "cache"
-    cached = _ten_vad_model.prepare_model(model, cache)
+    cached, source = _ten_vad_model.prepare_model(model, cache)
+    assert source == b"local weights"
     assert cached.read_bytes() == payload
-    assert _ten_vad_model.prepare_model(model, cache) == cached
+    assert _ten_vad_model.prepare_model(model, cache) == (cached, source)
     assert calls == [(b"local weights", b"local coefficients")]
 
     cached.write_bytes(payload[:-1] + b"\x01")
-    assert _ten_vad_model.prepare_model(model, cache) == cached
+    assert _ten_vad_model.prepare_model(model, cache) == (cached, source)
     assert cached.read_bytes() == payload
     assert len(calls) == 2
 

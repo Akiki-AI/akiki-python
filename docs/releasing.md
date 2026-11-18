@@ -23,6 +23,10 @@ Its tests use public dependencies and synthetic local checkpoints.
 Private engine and training checks run on `main` and trusted manual builds.
 Fork PR jobs do not receive private checkout credentials.
 
+The trusted Linux x86-64 build tests Akiki-VAD and TEN-VAD on the Akiki engine
+and ONNX Runtime from an installed wheel. It builds the TEN-VAD library from
+the pinned engine checkout. The tests generate the TEN-VAD ONNX fixture locally.
+
 Use version tags to record releases and release candidates.
 For example, use `v0.2.1` for version `0.2.1` and `v0.2.2rc1` for `0.2.2rc1`.
 Do not create an RC branch or release branch for each version.
