@@ -120,7 +120,7 @@ The training and teacher modules support the decision-model workflow:
 
 | Module | Main interface | Supporting types |
 | --- | --- | --- |
-| `akiki.audio.vad` | `VAD` for speech detection | `SpeechFrame`, `Engine`, `ModelPrecision`, `FFTPrecision` |
+| `akiki.audio.vad` | `VAD` for speech detection | `SpeechFrame`, `Model`, `Engine`, `ModelPrecision`, `FFTPrecision` |
 | `akiki.decision` | `DecisionModel` for specialist decisions | `BaseModel`, `Specialist`, `AffineLayer`, `TrainedSpecialist`, `SpecialistEvaluation`, `TrainingAdvice`, `list_base_models`, `Classification`, `ModelPrecision` |
 | `akiki.training` | Classifier training with a private companion | The installed companion's API, including `LocalModel`, `ModelFamily`, and `Trainer` |
 | `akiki.teacher` | Experimental review through a local or self-hosted server | `Teacher`, `Verdict`, `DecisionReview`, `TeachingResult` |
@@ -190,6 +190,35 @@ help(akiki.audio.vad.VAD.__init__)  # Constructor parameters and defaults
 help(akiki.audio.vad.VAD.push)  # Audio input, buffering, results, and errors
 help(akiki.audio.vad.SpeechFrame)  # Result fields and timestamp units
 ```
+
+### Select the VAD model
+
+`vad.VAD()` and `vad.VAD(model=vad.Model.AKIKI_VAD)` load the bundled Akiki-VAD model.
+
+To use TEN-VAD, install `akiki[ten-vad]` and set `AKIKI_TEN_VAD_LIBRARY` to
+your local Akiki TEN-VAD shared library. You can also pass `library_path`.
+
+```python
+from akiki.audio import vad
+
+with vad.VAD(
+    model=vad.Model.TEN_VAD,
+    model_path="snapshot/src/onnx_model/ten-vad.onnx",
+) as detector:
+    frames = detector.push([0.0] * 256)
+```
+
+Keep the matching `src/coeff.h` in the snapshot. For a standalone ONNX file,
+keep `coeff.h` next to the file. The coefficients supply the audio frontend.
+TEN-VAD requires mono 16 kHz samples in `[-1, 1]` and runs in FP32.
+
+Omit `model_path` to use the supported snapshot already in the Hugging Face
+cache. Set `HF_HUB_OFFLINE=1` and configure `HF_HUB_CACHE` if you use a
+custom cache directory. [TEN-VAD model on Hugging Face](https://huggingface.co/TEN-framework/ten-vad)
+
+The first load converts the ONNX weights for the Akiki engine. Later loads
+reuse the converted weights in the Akiki cache. The Akiki engine processes
+all audio frames.
 
 ### Command line
 

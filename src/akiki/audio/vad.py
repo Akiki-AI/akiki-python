@@ -20,6 +20,7 @@ Examples
 
 import json
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 import numpy as np
@@ -27,9 +28,16 @@ import numpy as np
 from .._engines import Engine
 from .._precision import FFTPrecision, ModelPrecision
 
-__all__ = ["Engine", "FFTPrecision", "ModelPrecision", "SpeechFrame", "VAD"]
+__all__ = ["Engine", "FFTPrecision", "Model", "ModelPrecision", "SpeechFrame", "VAD"]
 
 SAMPLE_RATE = 16000
+
+
+class Model(Enum):
+    """Model family to use for voice activity detection."""
+
+    AKIKI_VAD = "akiki-vad"
+    TEN_VAD = "ten-vad"
 
 
 @dataclass(frozen=True)
@@ -76,11 +84,10 @@ class VAD:
     ``SpeechFrame`` for every 256 samples (16 ms). Custom models use their
     supported ``chunk_samples`` value: 256 or 512 samples.
 
-    Models load locally. The Akiki engine is the primary engine.
-    ``engine=Engine.AUTO`` tries it first, then the ONNX and PyTorch compatibility
-    fallbacks. The Akiki engine uses INT8 by default. Compatibility engines use FP32.
-    Explicit non-FP32 precision requires the Akiki engine. Install compatibility
-    runtimes with ``akiki[onnx]`` or ``akiki[pytorch]`` when needed.
+    The Akiki engine is the primary engine. For Akiki-VAD, ``Engine.AUTO``
+    tries it first, then ONNX, then PyTorch. The Akiki engine uses INT8 by
+    default for Akiki-VAD. The compatibility engines use FP32.
+    TEN-VAD uses the Akiki engine with FP32.
     See ``VAD.__init__`` for all constructor options.
 
     Use the detector as a context manager or call ``close()`` when finished.
@@ -94,7 +101,7 @@ class VAD:
     engine_errors : dict[Engine, str]
         Reasons engines were unavailable before automatic selection succeeded.
     model_id : str
-        Identifier from the loaded model's metadata.
+        Identifier from the Akiki-VAD metadata, or ``"ten-vad"``.
     model_precision : ModelPrecision
         Active model precision, after resolving the engine's default.
     fft_precision : FFTPrecision
@@ -113,8 +120,10 @@ class VAD:
         Unscored float32 samples buffered for the next call to ``push``.
     context : numpy.ndarray
         Float32 audio context with shape ``(context_samples,)``.
+        TEN-VAD keeps its audio context in the engine. This array is empty for TEN-VAD.
     state : numpy.ndarray
-        Float32 recurrent state with shape ``(1, 1, hidden)``.
+        Float32 recurrent state. Akiki-VAD uses shape ``(1, 1, hidden)``.
+        TEN-VAD uses shape ``(4, 64)`` with hidden and cell state for each LSTM.
     session : onnxruntime.InferenceSession
         Present only when the selected engine is ONNX; ``None`` after closing.
 
@@ -144,18 +153,22 @@ class VAD:
         model_path: str | Path | None = None,
         threshold: float | None = None,
         *,
+        model: Model = Model.AKIKI_VAD,
         engine: Engine = Engine.AUTO,
         library_path: str | Path | None = None,
         model_precision: ModelPrecision | None = None,
         fft_precision: FFTPrecision = FFTPrecision.FP32,
         cache_dir: str | Path | None = None,
     ):
-        """Load a local model and inference engine, ready for a new stream.
+        """Load a local model and inference engine for a new stream.
 
         Parameters
         ----------
         model_path : str or pathlib.Path, optional
-            If omitted, use the bundled model.
+            For TEN-VAD, pass the path to its official ``.onnx`` file.
+            Keep the matching ``coeff.h`` beside the weights or use the
+            official snapshot layout. If omitted for TEN-VAD, use the pinned
+            Hugging Face snapshot from the local cache.
             For a custom Akiki model, pass its JSON metadata path, such as
             ``"models/vad.json"``. The Akiki engine loads the sibling
             ``"models/vad-native/"`` directory. It must contain ``config.json``,
@@ -167,8 +180,11 @@ class VAD:
             ``(512, 64)``. Custom PyTorch metadata also requires ``pytorch_sha256``.
         threshold : float, optional
             Speech decision threshold between 0 and 1 inclusive. If omitted,
-            use the threshold in the model's metadata. This changes the boolean
-            speech decision, not the returned probability.
+            use the threshold in the model's metadata, or 0.5 for TEN-VAD.
+            The threshold applies to the speech decision.
+        model : Model, default=Model.AKIKI_VAD
+            Select the VAD model family. Use ``Model.TEN_VAD`` for TEN-VAD.
+            With ``Model.AKIKI_VAD`` and no ``model_path``, use the bundled model.
         engine : Engine, default=Engine.AUTO
             Automatic selection tries the primary Akiki engine first.
             ONNX and PyTorch are compatibility fallbacks, in that order.
@@ -176,8 +192,9 @@ class VAD:
             Pass an ``Engine`` member, such as ``Engine.AKIKI``.
         library_path : str or pathlib.Path, optional
             Specific local Akiki shared library to load. Affects only the Akiki
-            engine. If omitted, use ``AKIKI_VAD_LIBRARY`` or the bundled library.
-            Automatic discovery does not search developer directories.
+            engine. If omitted, use ``AKIKI_VAD_LIBRARY`` or the bundled
+            Akiki-VAD library. For TEN-VAD, use ``AKIKI_TEN_VAD_LIBRARY``
+            or pass its library path here.
         model_precision : ModelPrecision, optional
             One of ``ModelPrecision.FP32``, ``FP16``, ``BF16``, ``INT8``,
             ``INT4``, or ``INT8_FP32_INPUT``. If omitted, Akiki uses INT8 and
@@ -185,19 +202,20 @@ class VAD:
             including in automatic mode. Reduced-precision Akiki weights are
             generated from the verified local FP32 model and reused from the
             cache. ``ModelPrecision.INT8_FP32_INPUT`` uses INT8 weights while
-            keeping the first projection's input in FP32.
+            keeping the first projection's input in FP32. TEN-VAD uses FP32.
         fft_precision : FFTPrecision, default=FFTPrecision.FP32
             FFT precision. Only ``FFTPrecision.FP32`` is supported.
         cache_dir : str or pathlib.Path, optional
             Directory for generated Akiki model variants. If omitted, use
             ``AKIKI_CACHE_DIR`` or the platform's user cache directory. Original
-            model weights are preserved. FP32 inference needs no conversion.
+            model weights are preserved. TEN-VAD prepares an engine cache
+            entry from its ONNX weights once per checkpoint.
 
         Raises
         ------
         TypeError
-            ``engine``, ``model_precision``, or ``fft_precision`` has the wrong
-            enum type. ``model_precision`` also accepts ``None``.
+            ``model``, ``engine``, ``model_precision``, or ``fft_precision``
+            has the wrong enum type. ``model_precision`` also accepts ``None``.
         ValueError
             A parameter, model specification, or model checksum is invalid.
         OSError
@@ -206,8 +224,10 @@ class VAD:
             No compatible engine is available for the requested configuration,
             or the directory for a generated model variant is not writable.
         """
-        from .._engines import load_engine
-
+        if not isinstance(model, Model):
+            raise TypeError(
+                "model must be a Model member, such as Model.AKIKI_VAD or Model.TEN_VAD"
+            )
         if not isinstance(engine, Engine):
             raise TypeError("engine must be an Engine member, such as Engine.AUTO or Engine.AKIKI")
         if model_precision is not None and not isinstance(model_precision, ModelPrecision):
@@ -220,6 +240,22 @@ class VAD:
         ):
             raise ValueError("Non-FP32 model_precision requires Engine.AKIKI or Engine.AUTO")
         self.fft_precision = fft_precision
+        self._model = model
+        if model is Model.TEN_VAD:
+            self._load_ten_vad(
+                model_path, threshold, engine, library_path, model_precision, cache_dir
+            )
+        else:
+            self._load_akiki_vad(
+                model_path, threshold, engine, library_path, model_precision, cache_dir
+            )
+        self.reset()
+
+    def _load_akiki_vad(
+        self, model_path, threshold, engine, library_path, model_precision, cache_dir
+    ):
+        from .._engines import load_engine
+
         path = (
             Path(model_path)
             if model_path is not None
@@ -238,9 +274,10 @@ class VAD:
             raise ValueError("Expected an Akiki full-waveform GRU model")
         if spec.get("sample_rate", SAMPLE_RATE) != SAMPLE_RATE or self.hidden <= 0:
             raise ValueError("Expected a 16 kHz model with a positive hidden size")
-        self.threshold = float(metadata["threshold"] if threshold is None else threshold)
-        if not np.isfinite(self.threshold) or not 0 <= self.threshold <= 1:
-            raise ValueError("Threshold must lie between zero and one")
+        self._state_shape = (1, 1, self.hidden)
+        self.threshold = self._validate_threshold(
+            metadata["threshold"] if threshold is None else threshold
+        )
         self._backend, self.engine, self.engine_errors = load_engine(
             path, metadata, engine, library_path, model_precision, cache_dir
         )
@@ -249,7 +286,35 @@ class VAD:
         )
         if self.engine is Engine.ONNX:
             self.session = self._backend.session
-        self.reset()
+
+    def _load_ten_vad(
+        self, model_path, threshold, engine, library_path, model_precision, cache_dir
+    ):
+        from ._ten_vad import TenVadBackend
+        from ._ten_vad_model import prepare_model
+
+        if engine not in (Engine.AUTO, Engine.AKIKI):
+            raise ValueError("TEN-VAD requires the Akiki engine")
+        if model_precision not in (None, ModelPrecision.FP32):
+            raise ValueError("TEN-VAD requires ModelPrecision.FP32")
+        self.threshold = self._validate_threshold(0.5 if threshold is None else threshold)
+        library = TenVadBackend.load_library(library_path)
+        native_path = prepare_model(model_path, cache_dir)
+        self._backend = TenVadBackend(native_path, library)
+        self.engine, self.engine_errors = Engine.AKIKI, {}
+        self.model_id = Model.TEN_VAD.value
+        self.model_precision = ModelPrecision.FP32
+        self.chunk_samples = self._backend.chunk_samples
+        self.context_samples = 0
+        self.hidden = self._backend.hidden
+        self._state_shape = self._backend.state_shape
+
+    @staticmethod
+    def _validate_threshold(threshold) -> float:
+        value = float(threshold)
+        if not np.isfinite(value) or not 0 <= value <= 1:
+            raise ValueError("Threshold must lie between zero and one")
+        return value
 
     def reset(self) -> None:
         """Start an independent recording with the same model and settings.
@@ -265,7 +330,7 @@ class VAD:
         """
         self._backend.reset()
         self.context = np.zeros(self.context_samples, dtype=np.float32)
-        self.state = np.zeros((1, 1, self.hidden), dtype=np.float32)
+        self.state = np.zeros(self._state_shape, dtype=np.float32)
         self.pending = np.empty(0, dtype=np.float32)
         self.completed_samples = 0
 
@@ -278,7 +343,8 @@ class VAD:
             One-dimensional, finite mono waveform samples. Lists and NumPy
             arrays are accepted and converted to float32. Samples should
             normally be scaled to [-1, 1]; integer PCM is not normalized for
-            you. Audio is not resampled or mixed down from multiple channels.
+            you. TEN-VAD requires samples in [-1, 1].
+            Audio is not resampled or mixed down from multiple channels.
         sample_rate : int, default=16000
             Input sample rate in Hz. Must be 16000.
 
@@ -312,6 +378,8 @@ class VAD:
         audio = np.asarray(samples, dtype=np.float32)
         if sample_rate != SAMPLE_RATE or audio.ndim != 1 or not np.isfinite(audio).all():
             raise ValueError("Expected finite mono 16 kHz audio samples")
+        if self._model is Model.TEN_VAD and (np.abs(audio) > 1).any():
+            raise ValueError("TEN-VAD requires audio samples in [-1, 1]")
         audio = np.concatenate([self.pending, audio])
         complete = len(audio) // self.chunk_samples * self.chunk_samples
         frames = []
@@ -323,7 +391,7 @@ class VAD:
                 raise RuntimeError("Model returned an invalid speech probability")
             begin = self.completed_samples
             self.state = state
-            self.context = window[-self.context_samples :].copy()
+            self.context = window[len(window) - self.context_samples :].copy()
             self.completed_samples += self.chunk_samples
             frames.append(
                 SpeechFrame(

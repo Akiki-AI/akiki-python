@@ -131,7 +131,7 @@ def check_metadata(data):
     )
     require(
         set(metadata.get_all("Provides-Extra") or [])
-        == {"huggingface", "onnx", "pytorch", "training"},
+        == {"huggingface", "onnx", "pytorch", "ten-vad", "training"},
         "Missing optional feature extras",
     )
     require(
@@ -142,6 +142,8 @@ def check_metadata(data):
             'huggingface-hub>=0.24; extra == "huggingface"',
             'onnxruntime>=1.17; extra == "onnx"',
             'torch>=2.1; extra == "pytorch"',
+            'huggingface-hub>=0.24; extra == "ten-vad"',
+            'onnx>=1.16; extra == "ten-vad"',
             'torch>=2.1; extra == "training"',
             'transformers<6,>=4.40; extra == "training"',
             'safetensors>=0.4; extra == "training"',

@@ -7,6 +7,7 @@ from .audio.vad import SAMPLE_RATE as SAMPLE_RATE
 from .audio.vad import VAD as VAD
 from .audio.vad import Engine as Engine
 from .audio.vad import FFTPrecision as FFTPrecision
+from .audio.vad import Model as Model
 from .audio.vad import ModelPrecision as ModelPrecision
 from .audio.vad import SpeechFrame as SpeechFrame
 
@@ -33,4 +34,4 @@ warnings.warn(
     stacklevel=_deprecation_stacklevel(),
 )
 
-__all__ = ["Engine", "FFTPrecision", "ModelPrecision", "SpeechFrame", "VAD"]
+__all__ = ["Engine", "FFTPrecision", "Model", "ModelPrecision", "SpeechFrame", "VAD"]
