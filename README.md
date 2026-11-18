@@ -116,11 +116,13 @@ PyTorch is the second VAD compatibility fallback.
 ## Python usage
 
 Use `akiki.vad` for VAD and `akiki.decision` for decision models.
+Use `akiki.vision.object_detection` for object detection.
 The training and teacher modules support the decision-model workflow:
 
 | Module | Main interface | Supporting types |
 | --- | --- | --- |
 | `akiki.vad` | `VAD` for speech detection | `SpeechFrame`, `Engine`, `ModelPrecision`, `FFTPrecision` |
+| `akiki.vision.object_detection` | `ObjectDetector` for object detection | `Detection` |
 | `akiki.decision` | `DecisionModel` for specialist decisions | `BaseModel`, `Specialist`, `AffineLayer`, `TrainedSpecialist`, `SpecialistEvaluation`, `TrainingAdvice`, `list_base_models`, `Classification`, `ModelPrecision` |
 | `akiki.training` | Classifier training with a private companion | The installed companion's API, including `LocalModel`, `ModelFamily`, and `Trainer` |
 | `akiki.teacher` | Experimental review through a local or self-hosted server | `Teacher`, `Verdict`, `DecisionReview`, `TeachingResult` |
@@ -148,7 +150,38 @@ modules remain accessible but are omitted from that list.
 The decision-model module is named `akiki.decision`. Existing imports from
 `akiki.minilm` remain available for compatibility and use the same classes
 and precision enum. Named top-level compatibility imports remain available.
-Wildcard imports expose only `VAD`, `MiniLM`, `vad`, `decision`, and `__version__`.
+Wildcard imports expose only `VAD`, `MiniLM`, `vad`, `decision`, `vision`, and `__version__`.
+
+## Object detection
+
+Use `akiki.vision.object_detection` to find objects in an RGB image.
+This interface supports `Akiki-AI/akiki-cam-seen`.
+It loads the Seen r4c files from the local Hugging Face cache.
+
+Set `HF_HUB_OFFLINE=1` when you use the Hugging Face cache.
+Use the Hugging Face extra to locate the cached snapshot.
+You can also pass an existing snapshot folder as `model_path`.
+Set `AKIKI_SEEN_LIBRARY` to the path of your local Akiki Seen library, or
+pass `library_path` when you create the detector.
+
+This example uses Pillow to read an image file.
+
+```python
+import numpy as np
+from PIL import Image
+
+from akiki.vision import object_detection
+
+with Image.open("frame.jpg") as frame:
+    image = np.asarray(frame.convert("RGB"))
+
+with object_detection.ObjectDetector() as detector:
+    for result in detector.detect(image):
+        print(result.word, result.score, (result.x0, result.y0, result.x1, result.y1))
+```
+
+Use `uint8` images with shape `(height, width, 3)` and RGB channel order.
+The box coordinates are in pixels of the source image.
 
 ## Voice activity detection (VAD)
 

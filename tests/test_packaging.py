@@ -209,6 +209,8 @@ def test_distributions_exclude_local_work_and_pass_release_verification(packaged
     with zipfile.ZipFile(next(directory.glob("*.whl"))) as wheel:
         names = wheel.namelist()
         assert "akiki/decision.py" in names
+        assert "akiki/vision/__init__.py" in names
+        assert "akiki/vision/object_detection.py" in names
         assert not any(name.startswith("akiki_training/") for name in names)
         metadata = wheel.read(next(name for name in names if name.endswith(".dist-info/METADATA")))
         assert b"Requires-Dist: akiki-training" not in metadata
