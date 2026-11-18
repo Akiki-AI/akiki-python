@@ -1,13 +1,19 @@
-"""Local voice activity detection and decision models.
+"""Local voice activity detection, object detection, and decision models.
 
-The primary interfaces are ``akiki.audio.vad.VAD`` and ``akiki.decision.DecisionModel``.
+The primary interfaces are ``akiki.audio.vad.VAD``,
+``akiki.vision.object_detection.ObjectDetector``, and ``akiki.decision.DecisionModel``.
 Training and teacher review support the decision-model workflow.
-The public API is organized into four areas:
+The public API has five areas.
 
 ``akiki.audio.vad``
     Streaming voice activity detection with ``VAD``. Results are
-    ``SpeechFrame`` objects. Configure inference with this module's ``Engine``,
-    ``ModelPrecision``, and ``FFTPrecision`` enums. The VAD model is bundled.
+    ``SpeechFrame`` objects. Select the model with ``Model``. Configure inference
+    with ``Engine``, ``ModelPrecision``, and ``FFTPrecision``.
+    The default Akiki-VAD model is bundled.
+``akiki.vision.object_detection``
+    Use ``ObjectDetector`` to find objects in RGB images.
+    Each ``Detection`` gives a family, score, and box.
+    Load Akiki Cam Seen from its local Hugging Face snapshot.
 ``akiki.decision``
     Select a local base checkpoint with ``DecisionModel`` and ``list_base_models``.
     Classify saved specialists with ``DecisionModel`` through the Akiki engine.
@@ -81,7 +87,7 @@ import warnings
 from importlib import import_module
 from typing import TYPE_CHECKING
 
-from . import audio, decision
+from . import audio, decision, vision
 from . import minilm as minilm
 from .audio.vad import Engine as Engine
 from .audio.vad import FFTPrecision as FFTPrecision
@@ -102,6 +108,7 @@ __all__ = [
     "__version__",
     "audio",
     "decision",
+    "vision",
 ]
 
 

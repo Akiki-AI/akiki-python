@@ -47,7 +47,7 @@ package_dir = root / "src/akiki"
 model_dir = package_dir / "models"
 python_modules = {
     "akiki/" + path.relative_to(package_dir).as_posix(): path
-    for package in (package_dir, package_dir / "audio")
+    for package in (package_dir, package_dir / "audio", package_dir / "vision")
     for path in package.glob("*.py")
 }
 expected_id = "teacher-only623-v2-s1730"

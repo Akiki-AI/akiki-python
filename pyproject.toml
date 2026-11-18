@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "akiki"
 version = "0.2.2"
-description = "Local voice activity detection and decision models"
+description = "Local voice activity detection, object detection, and decision models"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
@@ -46,7 +46,7 @@ include-package-data = false
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["akiki", "akiki.audio"]
+include = ["akiki", "akiki.audio", "akiki.vision"]
 namespaces = false
 
 [tool.setuptools.package-data]

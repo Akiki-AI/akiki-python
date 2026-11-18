@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 import akiki
-from akiki import audio, decision
+from akiki import audio, decision, vision
 from akiki.audio import vad
 from akiki.hub import download_model
 
@@ -99,6 +99,7 @@ def test_wildcard_import_exposes_the_main_interfaces_and_modules():
     assert namespace["audio"].vad is vad
     assert "vad" not in namespace
     assert namespace["decision"] is decision
+    assert namespace["vision"] is vision
     assert "minilm" not in namespace
     assert "ModelPrecision" not in namespace
     assert "SpeechFrame" not in namespace
