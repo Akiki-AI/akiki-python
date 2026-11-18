@@ -39,10 +39,10 @@ class BlockTraining(importlib.abc.MetaPathFinder):
 sys.meta_path.insert(0, BlockTraining())
 import akiki
 assert akiki.VAD is not None
-assert dir(akiki) == ['MiniLM', 'VAD', '__version__', 'decision', 'vad']
+assert dir(akiki) == ['MiniLM', 'VAD', '__version__', 'audio', 'decision']
 namespace = {}
 exec('from akiki import *', namespace)
-assert namespace['vad'].VAD is akiki.VAD
+assert namespace['audio'].vad.VAD is akiki.VAD
 assert namespace['decision'].MiniLM is akiki.MiniLM
 assert 'akiki.training' not in sys.modules
 import importlib
@@ -85,7 +85,7 @@ import akiki_training as backend
 from akiki_training import training as legacy
 
 assert training is akiki.training
-assert dir(akiki) == ['MiniLM', 'VAD', '__version__', 'decision', 'training', 'vad']
+assert dir(akiki) == ['MiniLM', 'VAD', '__version__', 'audio', 'decision', 'training']
 assert dir(training) == sorted(backend.__all__)
 assert training.__all__ is backend.__all__
 for name in backend.__all__:

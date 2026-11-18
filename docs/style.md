@@ -19,7 +19,7 @@ ONNX and PyTorch are VAD compatibility fallbacks.
 Do not use the implementation language as the engine name.
 
 Describe the two primary interfaces as VAD and decision models.
-Use `akiki.vad.VAD` and `akiki.decision.DecisionModel` in API overviews.
+Use `akiki.audio.vad.VAD` and `akiki.decision.DecisionModel` in API overviews.
 Describe MiniLM/BERT as the family supported by the current decision-model runtime.
 Use `MiniLM` for direct access to that family.
 Keep model discovery, training support, and inference support separate.
@@ -36,7 +36,7 @@ Use separate enum classes when parameters accept different sets of choices.
 For example, VAD model precision and FFT precision have different domains:
 
 ```python
-from akiki.vad import VAD, FFTPrecision, ModelPrecision
+from akiki.audio.vad import VAD, FFTPrecision, ModelPrecision
 
 with VAD(
     model_precision=ModelPrecision.INT8,
@@ -46,7 +46,7 @@ with VAD(
 ```
 
 VAD and decision models also have distinct model precision domains. Use
-`akiki.vad.ModelPrecision` with `VAD` and `akiki.decision.ModelPrecision` with
+`akiki.audio.vad.ModelPrecision` with `VAD` and `akiki.decision.ModelPrecision` with
 `DecisionModel` or `MiniLM`.
 Do not share enum types just because some serialized values match.
 
@@ -117,7 +117,7 @@ Check the executable examples in the public inference docstrings:
 
 ```bash
 HF_HUB_OFFLINE=1 python -m pytest -q --doctest-modules \
-    src/akiki/__init__.py src/akiki/vad.py src/akiki/decision.py src/akiki/hub.py
+    src/akiki/__init__.py src/akiki/audio/vad.py src/akiki/decision.py src/akiki/hub.py
 ```
 
 VAD examples require a working local engine. Examples with placeholder text-model

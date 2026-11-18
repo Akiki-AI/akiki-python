@@ -9,8 +9,8 @@ import json
 from dataclasses import asdict
 
 from . import __version__
+from .audio.vad import Engine, FFTPrecision, ModelPrecision
 from .decision import ModelPrecision as MiniLMPrecision
-from .vad import Engine, FFTPrecision, ModelPrecision
 
 
 def main():

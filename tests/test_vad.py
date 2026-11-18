@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from akiki import VAD, Engine, FFTPrecision, ModelPrecision
+from akiki.audio.vad import VAD, Engine, FFTPrecision, ModelPrecision
 
 
 def test_primary_engine_uses_the_akiki_name():

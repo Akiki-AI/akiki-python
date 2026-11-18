@@ -1,10 +1,10 @@
 """Local voice activity detection and decision models.
 
-The primary interfaces are ``akiki.vad.VAD`` and ``akiki.decision.DecisionModel``.
+The primary interfaces are ``akiki.audio.vad.VAD`` and ``akiki.decision.DecisionModel``.
 Training and teacher review support the decision-model workflow.
 The public API is organized into four areas:
 
-``akiki.vad``
+``akiki.audio.vad``
     Streaming voice activity detection with ``VAD``. Results are
     ``SpeechFrame`` objects. Configure inference with this module's ``Engine``,
     ``ModelPrecision``, and ``FFTPrecision`` enums. The VAD model is bundled.
@@ -48,18 +48,20 @@ Process one frame of silence using the top-level shortcut::
 
 Find domain-specific configuration and help through the modules::
 
-    >>> from akiki import decision, vad
+    >>> from akiki import decision
+    >>> from akiki.audio import vad
     >>> vad.ModelPrecision.INT8 is decision.ModelPrecision.INT8
     False
 
-Use ``help(akiki.vad)`` and ``help(akiki.decision)`` to explore each API, or
-``help(akiki.vad.VAD)`` and ``help(akiki.decision.DecisionModel)`` for the
+Use ``help(akiki.audio.vad)`` and ``help(akiki.decision)`` to explore each API, or
+``help(akiki.audio.vad.VAD)`` and ``help(akiki.decision.DecisionModel)`` for the
 primary classes. Use ``help(akiki.decision.MiniLM)`` for direct access to the
 currently supported decision-model family.
 Explicit model retrieval utilities live in ``akiki.hub``.
 
 Compatibility
 -------------
+``akiki.vad`` re-exports the VAD classes and enums from ``akiki.audio.vad``.
 ``akiki.minilm`` remains a compatibility module. It re-exports the decision
 API's MiniLM class, result types, and current precision enum.
 Existing named top-level imports of ``SpeechFrame``, ``Engine``, ``ModelPrecision``,
@@ -74,25 +76,26 @@ __version__ : str
     Installed Akiki package version.
 """
 
-from . import decision, vad
+from . import audio, decision
 from . import minilm as minilm
+from . import vad as vad
+from .audio.vad import VAD
+from .audio.vad import Engine as Engine
+from .audio.vad import FFTPrecision as FFTPrecision
+from .audio.vad import ModelPrecision as ModelPrecision
+from .audio.vad import SpeechFrame as SpeechFrame
 from .decision import Classification as Classification
 from .decision import Encoding as Encoding
 from .decision import MiniLM
 from .hub import download_model as download_model
-from .vad import VAD
-from .vad import Engine as Engine
-from .vad import FFTPrecision as FFTPrecision
-from .vad import ModelPrecision as ModelPrecision
-from .vad import SpeechFrame as SpeechFrame
 
 __version__ = "0.2.2"
 __all__ = [
     "MiniLM",
     "VAD",
     "__version__",
+    "audio",
     "decision",
-    "vad",
 ]
 
 

@@ -43,7 +43,13 @@ wheels = (
     else [args.wheel or args.dist_dir / f"akiki-{version}-py3-none-any.whl"]
 )
 source = args.dist_dir / f"akiki-{version}.tar.gz"
-model_dir = root / "src/akiki/models"
+package_dir = root / "src/akiki"
+model_dir = package_dir / "models"
+python_modules = {
+    "akiki/" + path.relative_to(package_dir).as_posix(): path
+    for package in (package_dir, package_dir / "audio")
+    for path in package.glob("*.py")
+}
 expected_id = "teacher-only623-v2-s1730"
 expected_hash = "0fab56bc4ea6725ec881c35973e04813a4963dc5bbf4bf5ccfe8fd7cf468c6f5"
 checks = {}
@@ -85,11 +91,12 @@ def check_no_local_artifacts(names):
 
 def check_package_files(names, *, allow_native=False):
     names = {name for name in names if not name.endswith("/")}
-    expected = {
-        "akiki/" + path.relative_to(root / "src/akiki").as_posix()
-        for path in [*(root / "src/akiki").glob("*.py"), *model_dir.rglob("*")]
+    expected = set(python_modules)
+    expected.update(
+        "akiki/" + path.relative_to(package_dir).as_posix()
+        for path in model_dir.rglob("*")
         if path.is_file()
-    }
+    )
     if allow_native:
         expected.update(
             name
@@ -228,11 +235,8 @@ for wheel in wheels:
                 f"Wheel licence differs: {name}",
             )
         info["model"] = check_models(archive.read, archive.namelist())
-        for path in (root / "src/akiki").glob("*.py"):
-            require(
-                archive.read("akiki/" + path.name) == path.read_bytes(),
-                f"Stale Python module: {path.name}",
-            )
+        for name, path in python_modules.items():
+            require(archive.read(name) == path.read_bytes(), f"Stale Python module: {name}")
         libraries = [
             name
             for name in archive.namelist()
