@@ -28,7 +28,7 @@ def _deprecation_stacklevel() -> int:
 
 
 warnings.warn(
-    "akiki.vad is deprecated and will be removed in version 0.3.0. "
+    "akiki.vad is deprecated and will be removed in version 0.4.0. "
     "Use 'from akiki.audio import vad' instead.",
     DeprecationWarning,
     stacklevel=_deprecation_stacklevel(),

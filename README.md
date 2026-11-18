@@ -1,19 +1,19 @@
-# Akiki
+# Akiki Python
 
-Akiki provides local voice activity detection (VAD) and decision models.
-VAD returns a speech probability, a speech/silence decision, and timestamps for
-each 16 ms frame. Decision models classify text with saved specialists and
-return label probabilities through [`DecisionModel`](#decision-models).
-Training uses an optional companion package. An experimental teacher API can
-request example proposals from a server on your own computer or infrastructure.
+Akiki is a Python package for local audio and vision inference and decision models.
 
-Decision models use a frozen base checkpoint and specialist adapters.
-The Akiki engine currently supports MiniLM/BERT exports for decision inference.
-Support for other model families requires additional inference implementations.
+- **Audio** detects speech in 16 kHz mono audio. Get a probability, speech
+  decision, and timestamps for each 16 ms frame. Choose the bundled Akiki-VAD
+  model or use local TEN-VAD ONNX weights. [Voice activity detection](#voice-activity-detection-vad)
+- **Vision** detects objects in RGB images with Akiki Cam Seen. Each detection
+  gives the object family, score, and bounding box. [Object detection](#object-detection)
+- **Decision models** classify text using a local MiniLM/BERT checkpoint and
+  saved specialist adapters. [Decision models](#decision-models)
 
-The VAD model is included in the package. VAD runs locally, without a model
-download, network connection, or external service. The Akiki engine uses INT8
-model inference by default, with an FP32 FFT.
+Inference runs on your computer. The package includes the Akiki-VAD model.
+Supply the local model files and shared libraries for TEN-VAD and Seen.
+Training uses an optional companion package. The experimental teacher API can
+request example proposals from a server on your own infrastructure.
 
 ## Install
 
@@ -32,14 +32,15 @@ Or add it to a uv project:
 uv add akiki
 ```
 
-The base installation uses the Akiki engine on supported hosts.
-ONNX and PyTorch provide compatibility fallbacks for VAD.
-Install `akiki[onnx]` or `akiki[pytorch]` when you need a compatibility engine.
+Native wheels include the Akiki-VAD and MiniLM/BERT libraries.
+Install `akiki[onnx]` or `akiki[pytorch]` to use an Akiki-VAD compatibility
+engine. See [TEN-VAD setup](#select-the-vad-model) and [Seen setup](#object-detection)
+for their local libraries and model files.
 
 ### Windows and macOS
 
 Native wheels support Windows x64, macOS Intel, and macOS Apple Silicon.
-Each wheel includes the Akiki engine for VAD and decision models.
+Each wheel includes the Akiki engine libraries for Akiki-VAD and MiniLM/BERT.
 Pip selects the wheel for your Python installation. No engine build is required.
 Windows ARM64 wheels are not available.
 The macOS wheels target macOS 11.0 or later.
@@ -90,7 +91,7 @@ To use an existing local MiniLM/BERT classifier, run:
 ```
 
 Replace `./models/my-classifier` with your local export directory.
-The Python VAD and decision-model APIs below are the same on all supported systems.
+The Python API examples apply on all supported systems with the required libraries.
 
 #### VAD compatibility fallback
 
@@ -110,8 +111,8 @@ On macOS, run:
 .venv/bin/python -m akiki vad "./recording.wav" --engine onnx
 ```
 
-This fallback uses the bundled VAD model. It does not enable decision-model inference.
-PyTorch is the second VAD compatibility fallback.
+This fallback uses the bundled Akiki-VAD model.
+PyTorch is the second Akiki-VAD compatibility fallback.
 
 ## Python usage
 
@@ -151,23 +152,23 @@ modules remain accessible but are omitted from that list.
 The decision-model module is named `akiki.decision`. Existing imports from
 `akiki.minilm` remain available for compatibility and use the same classes
 and precision enum. Named top-level compatibility imports remain available.
-`akiki.vad` and `akiki.VAD` are deprecated and will be removed in version 0.3.0.
+The legacy `akiki.vad` and `akiki.VAD` imports remain available in 0.3.0.
+Both emit a deprecation warning and are scheduled for removal in 0.4.0.
 Use `from akiki.audio import vad` and call `vad.VAD()`.
 Wildcard imports expose only `VAD`, `MiniLM`, `audio`, `decision`, `vision`, and `__version__`.
 
 ## Object detection
 
 Use `akiki.vision.object_detection` to find objects in an RGB image.
-This interface supports `Akiki-AI/akiki-cam-seen`.
-It loads the Seen r4c files from the local Hugging Face cache.
+Use the Seen r4c model from `Akiki-AI/akiki-cam-seen`.
+Set `AKIKI_SEEN_LIBRARY` to the path of your local Akiki Seen shared library,
+or pass `library_path` when you create the detector.
 
-Set `HF_HUB_OFFLINE=1` when you use the Hugging Face cache.
-Use the Hugging Face extra to locate the cached snapshot.
-You can also pass an existing snapshot folder as `model_path`.
-Set `AKIKI_SEEN_LIBRARY` to the path of your local Akiki Seen library, or
-pass `library_path` when you create the detector.
+Pass the directory of your existing model snapshot as `model_path`.
+To use a snapshot already in the Hugging Face cache, install
+`akiki[huggingface]`, set `HF_HUB_OFFLINE=1`, and omit `model_path`.
 
-This example uses Pillow to read an image file.
+Install Pillow to read the image file in this example.
 
 ```python
 import numpy as np
@@ -178,7 +179,7 @@ from akiki.vision import object_detection
 with Image.open("frame.jpg") as frame:
     image = np.asarray(frame.convert("RGB"))
 
-with object_detection.ObjectDetector() as detector:
+with object_detection.ObjectDetector(model_path="path/to/seen-snapshot") as detector:
     for result in detector.detect(image):
         print(result.word, result.score, (result.x0, result.y0, result.x1, result.y1))
 ```
@@ -214,7 +215,8 @@ The public API includes docstrings for editor hints and interactive help:
 ```python
 import akiki
 
-help(akiki)  # Overview of audio, decision, training, and teacher
+help(akiki)
+help(akiki.vision.object_detection)  # Object detection and result types
 help(akiki.audio.vad)  # Speech detection, configuration, and result types
 help(akiki.decision)  # Decision models, specialists, and result types
 help(akiki.decision.DecisionModel)  # Base-model selection and specialist inference
@@ -279,9 +281,9 @@ It does not manage decision-model specialists.
 
 ### Inference engines
 
-The Akiki engine is the primary engine for VAD and decision-model inference.
-Its current decision-model implementation supports MiniLM/BERT exports.
-ONNX and PyTorch are VAD compatibility fallbacks.
+The Akiki engine is the primary engine for audio, vision, and decision-model
+inference. Akiki-VAD supports ONNX and PyTorch compatibility fallbacks.
+TEN-VAD supports the Akiki engine and ONNX Runtime.
 
 Linux x86_64 wheels include the Akiki engine for systems with glibc 2.34 or later.
 Pip and uv select a compatible wheel automatically. No engine build is required.
@@ -298,7 +300,7 @@ Version **0.1.4** also includes the Akiki MiniLM engine in the Linux ARM64 wheel
 **ARM64 MiniLM support is experimental**, including inference with local Ariadne
 adapters. It uses the existing MiniLM API and requires glibc 2.28 or later.
 
-`VAD(engine=Engine.AUTO)` tries the Akiki engine first.
+For Akiki-VAD, `VAD(engine=Engine.AUTO)` tries the Akiki engine first.
 If it is unavailable, selection tries ONNX, then PyTorch.
 The compatibility engines are optional. The base package requires neither runtime.
 
@@ -320,7 +322,7 @@ The PyTorch extra does not install ONNX Runtime. Install `akiki[onnx,pytorch]`
 if you want both alternatives. If no engine is available, Akiki raises an error
 with installation instructions.
 
-Import `Engine` from `akiki` and choose an engine with `VAD(engine=Engine.AKIKI)`,
+Import `VAD` and `Engine` from `akiki.audio.vad`. Choose an engine with `VAD(engine=Engine.AKIKI)`,
 `VAD(engine=Engine.ONNX)`, or `VAD(engine=Engine.PYTORCH)`. The default is
 `Engine.AUTO`; the Python API requires enum members. On the command line, use
 `akiki vad recording.wav --engine akiki`, `--engine onnx`, or `--engine pytorch`.
@@ -328,8 +330,7 @@ An explicitly selected engine raises an error if it is unavailable. Check
 `vad.engine` to see the active `Engine` member. `vad.engine_errors` maps
 `Engine` members to the reasons they were unavailable during automatic selection.
 
-All VAD engines use the same bundled model and streaming API.
-The compatibility fallbacks apply to VAD.
+All Akiki-VAD engines use the same bundled model and streaming API.
 Decision-model inference currently requires the Akiki engine and a supported export.
 
 Automatic library discovery checks only the package's `native` directory.
@@ -339,12 +340,14 @@ on the command line. You can also set an engine-specific environment variable:
 
 | Library | Environment variable |
 | --- | --- |
-| VAD | `AKIKI_VAD_LIBRARY` |
+| Akiki-VAD | `AKIKI_VAD_LIBRARY` |
+| TEN-VAD | `AKIKI_TEN_VAD_LIBRARY` |
+| Seen object detection | `AKIKI_SEEN_LIBRARY` |
 | Decision models (current MiniLM/BERT runtime) | `AKIKI_MINILM_LIBRARY` |
 
 An explicit path takes priority over the environment variable and bundled library.
 If the selected library is missing or incompatible, no other library is tried.
-VAD with `Engine.AUTO` can still use the ONNX, then PyTorch compatibility fallbacks.
+Akiki-VAD with `Engine.AUTO` can use the ONNX, then PyTorch compatibility fallbacks.
 
 ### Model precision
 

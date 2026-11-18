@@ -14,12 +14,14 @@ Apply this standard when you revise existing text.
 
 Name the primary inference engine the Akiki engine.
 Use `Engine.AKIKI` in Python examples and `--engine akiki` in CLI examples.
-ONNX and PyTorch are VAD compatibility fallbacks.
-`Engine.AUTO` tries Akiki first, then ONNX, then PyTorch.
+For Akiki-VAD, `Engine.AUTO` tries Akiki first, then ONNX, then PyTorch.
+TEN-VAD uses the Akiki engine by default. With `Engine.ONNX`, the Akiki
+frontend supplies features to ONNX Runtime.
 Do not use the implementation language as the engine name.
 
-Describe the two primary interfaces as VAD and decision models.
-Use `akiki.audio.vad.VAD` and `akiki.decision.DecisionModel` in API overviews.
+Describe the primary interfaces as audio, vision, and decision models.
+Use `akiki.audio.vad.VAD`, `akiki.vision.object_detection.ObjectDetector`,
+and `akiki.decision.DecisionModel` in API overviews.
 Describe MiniLM/BERT as the family supported by the current decision-model runtime.
 Use `MiniLM` for direct access to that family.
 Keep model discovery, training support, and inference support separate.

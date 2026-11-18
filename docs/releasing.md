@@ -3,10 +3,13 @@
 The public PyPI description comes from `README.md`. Keep it focused on package
 features and usage. Build and publishing instructions belong here.
 
-Akiki provides VAD and decision models.
-The primary classes are `akiki.audio.vad.VAD` and `akiki.decision.DecisionModel`.
-Current native decision inference supports MiniLM/BERT exports.
-The library filenames below retain the name of that implementation.
+Akiki provides audio and vision inference and decision models.
+Use `akiki.audio.vad.VAD` for voice activity detection.
+Use `akiki.vision.object_detection.ObjectDetector` for Seen object detection.
+Use `akiki.decision.DecisionModel` for MiniLM/BERT specialist inference.
+
+Native wheels ship the Akiki-VAD and MiniLM/BERT libraries.
+Use separate local libraries and model files for TEN-VAD and Seen.
 
 ## Branches and release preparation
 
@@ -42,8 +45,8 @@ Publishing the GitHub release starts PyPI publication.
 
 Update the version in `pyproject.toml`, `src/akiki/__init__.py`, the version
 assertion in `tests/test_vad.py`, and the package version in
-`src/akiki/models/release.json` and `src/akiki/models/MODEL_CARD.md`. Preserve the model identity
-and weight checksums unless deliberately releasing a different model.
+`src/akiki/models/release.json` and `src/akiki/models/MODEL_CARD.md`.
+Preserve the model identity and weight checksums unless releasing a different model.
 
 PyPI takes a release's description from its first upload. A description change
 requires a new version; an additional wheel does not update an existing page.
