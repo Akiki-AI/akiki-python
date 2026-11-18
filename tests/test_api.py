@@ -4,7 +4,7 @@ import importlib
 
 import pytest
 
-from akiki import decision, vad
+from akiki import decision, vad, vision
 from akiki.hub import download_model
 
 
@@ -41,6 +41,7 @@ def test_wildcard_import_exposes_the_main_interfaces_and_modules():
     assert namespace["MiniLM"] is decision.MiniLM
     assert namespace["vad"] is vad
     assert namespace["decision"] is decision
+    assert namespace["vision"] is vision
     assert "minilm" not in namespace
     assert "ModelPrecision" not in namespace
     assert "SpeechFrame" not in namespace
