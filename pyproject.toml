@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "akiki"
-version = "0.2.2"
-description = "Local voice activity detection, object detection, and decision models"
+version = "0.3.0"
+description = "Local audio and vision inference and decision models"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.txt"]
 authors = [{name = "Akiki AI"}]
-keywords = ["vad", "audio", "speech", "voice-activity-detection", "decision-models", "intent-classification", "minilm", "sentence-embeddings", "text-classification"]
+keywords = ["vad", "audio", "speech", "voice-activity-detection", "vision", "object-detection", "decision-models", "intent-classification", "minilm", "sentence-embeddings", "text-classification"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Programming Language :: Python :: 3",

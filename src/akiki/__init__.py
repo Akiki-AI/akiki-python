@@ -1,4 +1,4 @@
-"""Local voice activity detection, object detection, and decision models.
+"""Local audio and vision inference and decision models.
 
 The primary interfaces are ``akiki.audio.vad.VAD``,
 ``akiki.vision.object_detection.ObjectDetector``, and ``akiki.decision.DecisionModel``.
@@ -59,15 +59,14 @@ Find domain-specific configuration and help through the modules::
     >>> vad.ModelPrecision.INT8 is decision.ModelPrecision.INT8
     False
 
-Use ``help(akiki.audio.vad)`` and ``help(akiki.decision)`` to explore each API, or
-``help(akiki.audio.vad.VAD)`` and ``help(akiki.decision.DecisionModel)`` for the
-primary classes. Use ``help(akiki.decision.MiniLM)`` for direct access to the
-currently supported decision-model family.
+Use ``help(akiki.audio.vad)``, ``help(akiki.vision.object_detection)``, and
+``help(akiki.decision)`` to explore these APIs. Use ``help(akiki.decision.MiniLM)``
+for direct access to the current decision-model family.
 Explicit model retrieval utilities live in ``akiki.hub``.
 
 Compatibility
 -------------
-``akiki.vad`` and ``akiki.VAD`` will be removed in version 0.3.0.
+``akiki.vad`` and ``akiki.VAD`` will be removed in version 0.4.0.
 Use ``from akiki.audio import vad`` and call ``vad.VAD()``.
 ``akiki.minilm`` remains a compatibility module. It re-exports the decision
 API's MiniLM class, result types, and current precision enum.
@@ -101,7 +100,7 @@ from .hub import download_model as download_model
 if TYPE_CHECKING:
     from .audio.vad import VAD as VAD
 
-__version__ = "0.2.2"
+__version__ = "0.3.0"
 __all__ = [
     "MiniLM",
     "VAD",
@@ -115,7 +114,7 @@ __all__ = [
 def __getattr__(name: str):
     if name == "VAD":
         warnings.warn(
-            "akiki.VAD is deprecated and will be removed in version 0.3.0. "
+            "akiki.VAD is deprecated and will be removed in version 0.4.0. "
             "Use akiki.audio.vad.VAD instead.",
             DeprecationWarning,
             stacklevel=2,

@@ -109,7 +109,7 @@ def test_default_is_selected_release_checkpoint():
 
     model_dir = Path(akiki.__file__).parent / "models"
     metadata = json.loads((model_dir / "akiki-vad.json").read_text())
-    assert akiki.__version__ == "0.2.2"
+    assert akiki.__version__ == "0.3.0"
     with VAD() as default, VAD(model=Model.AKIKI_VAD) as named:
         assert default.model_id == named.model_id == "teacher-only623-v2-s1730"
         assert default.push([0.0] * 256) == named.push([0.0] * 256)

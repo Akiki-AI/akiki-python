@@ -36,7 +36,7 @@ def test_existing_top_level_imports_keep_their_identity(name, expected):
 @pytest.mark.parametrize("access", ["from akiki import VAD", "VAD = akiki.VAD"])
 def test_legacy_top_level_vad_warns_and_keeps_its_identity(access):
     namespace = {"akiki": akiki}
-    with pytest.warns(DeprecationWarning, match=r"akiki\.VAD .* removed in version 0\.3\.0"):
+    with pytest.warns(DeprecationWarning, match=r"akiki\.VAD .* removed in version 0\.4\.0"):
         exec(access, namespace)
     assert namespace["VAD"] is vad.VAD
 
@@ -70,7 +70,7 @@ with warnings.catch_warnings(record=True) as recorded:
 [warning] = recorded
 assert warning.filename == "<string>", warning.filename
 assert warning.category is DeprecationWarning
-assert "akiki.vad is deprecated and will be removed in version 0.3.0" in str(warning.message)
+assert "akiki.vad is deprecated and will be removed in version 0.4.0" in str(warning.message)
 assert legacy is importlib.import_module("akiki.vad")
 for name in vad.__all__:
     assert getattr(legacy, name) is getattr(vad, name)
